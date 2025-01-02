@@ -6,6 +6,7 @@ use App\Repository\UsersRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: UsersRepository::class)]
@@ -15,26 +16,31 @@ class Users
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
+    #[Groups(['user:read'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank(message: 'Veuillez renseigner un prénom.')]
     #[Assert\Length(max: 255, maxMessage: 'Le prénom ne peut pas dépasser {{ limit }} caractères.')]
+    #[Groups(['user:read'])]
     private ?string $name = null;
 
     #[ORM\Column(length: 255, nullable: true)]
     #[Assert\Length(max: 255, maxMessage: 'Le nom de famille ne peut pas dépasser {{ limit }} caractères.')]
+    #[Groups(['user:read'])]
     private ?string $lastName = null;
 
     #[ORM\Column(length: 255, nullable: true)]
     #[Assert\Email(message: 'L\'email "{{ value }}" n\'est pas valide.')]
     #[Assert\Length(max: 255, maxMessage: 'L\'email ne peut pas dépasser {{ limit }} caractères.')]
+    #[Groups(['user:read'])]
     private ?string $email = null;
 
     /**
      * @var Collection<int, Company>
      */
     #[ORM\ManyToMany(targetEntity: Company::class, inversedBy: 'users')]
+    #[Groups(['user:read'])]
     private Collection $companies;
 
     public function __construct()
