@@ -4,6 +4,7 @@ namespace App\Entity;
 
 use App\Repository\ProductRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: ProductRepository::class)]
@@ -13,6 +14,7 @@ class Product
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
+    #[Groups(['product:read'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
@@ -21,6 +23,7 @@ class Product
         max: 255,
         maxMessage: 'Le nom du produit ne peut pas dépasser {{ limit }} caractères.'
     )]
+    #[Groups(['product:read', 'product:write'])]
     private ?string $name = null;
 
     #[ORM\Column(length: 255)]
@@ -29,23 +32,28 @@ class Product
         max: 255,
         maxMessage: 'La description du produit ne peut pas dépasser {{ limit }} caractères.'
     )]
+    #[Groups(['product:read', 'product:write'])]
     private ?string $description = null;
 
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank(message: 'Veuillez renseigner un modèle pour le produit.')]
+    #[Groups(['product:read', 'product:write'])]
     private ?string $model = null;
 
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank(message: 'Veuillez renseigner une marque pour le produit.')]
+    #[Groups(['product:read', 'product:write'])]
     private ?string $brand = null;
 
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank(message: 'Veuillez renseigner une référence pour le produit.')]
+    #[Groups(['product:read', 'product:write'])]
     private ?string $reference = null;
 
     #[ORM\Column]
     #[Assert\NotBlank(message: 'Veuillez renseigner un prix pour le produit.')]
     #[Assert\Positive(message: 'Le prix doit être un nombre positif.')]
+    #[Groups(['product:read', 'product:write'])]
     private ?float $price = null;
 
     #[ORM\Column(length: 255, nullable: true)]
@@ -53,18 +61,22 @@ class Product
         max: 255,
         maxMessage: 'La dimension ne peut pas dépasser {{ limit }} caractères.'
     )]
+    #[Groups(['product:read', 'product:write'])]
     private ?string $dimension = null;
 
     #[ORM\Column]
     #[Assert\NotBlank(message: 'Veuillez renseigner la quantité en stock.')]
     #[Assert\PositiveOrZero(message: 'Le stock ne peut pas être négatif.')]
+    #[Groups(['product:read', 'product:write'])]
     private ?int $stock = null;
 
     #[ORM\Column(options: ['default' => true])]
+    #[Groups(['product:read', 'product:write'])]
     private ?bool $isAvailable = true;
 
     #[ORM\Column(length: 255, nullable: true)]
     #[Assert\Url(message: 'Veuillez renseigner une URL valide pour l’image.')]
+    #[Groups(['product:read', 'product:write'])]
     private ?string $image = null;
 
     public function __construct()
