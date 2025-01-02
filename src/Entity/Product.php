@@ -4,6 +4,7 @@ namespace App\Entity;
 
 use App\Repository\ProductRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: ProductRepository::class)]
 class Product
@@ -15,33 +16,55 @@ class Product
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
+    #[Assert\NotBlank(message: 'Veuillez renseigner un nom pour le produit.')]
+    #[Assert\Length(
+        max: 255,
+        maxMessage: 'Le nom du produit ne peut pas dépasser {{ limit }} caractères.'
+    )]
     private ?string $name = null;
 
     #[ORM\Column(length: 255)]
+    #[Assert\NotBlank(message: 'Veuillez renseigner une description pour le produit.')]
+    #[Assert\Length(
+        max: 255,
+        maxMessage: 'La description du produit ne peut pas dépasser {{ limit }} caractères.'
+    )]
     private ?string $description = null;
 
     #[ORM\Column(length: 255)]
+    #[Assert\NotBlank(message: 'Veuillez renseigner un modèle pour le produit.')]
     private ?string $model = null;
 
     #[ORM\Column(length: 255)]
+    #[Assert\NotBlank(message: 'Veuillez renseigner une marque pour le produit.')]
     private ?string $brand = null;
 
     #[ORM\Column(length: 255)]
+    #[Assert\NotBlank(message: 'Veuillez renseigner une référence pour le produit.')]
     private ?string $reference = null;
 
     #[ORM\Column]
+    #[Assert\NotBlank(message: 'Veuillez renseigner un prix pour le produit.')]
+    #[Assert\Positive(message: 'Le prix doit être un nombre positif.')]
     private ?float $price = null;
 
     #[ORM\Column(length: 255, nullable: true)]
+    #[Assert\Length(
+        max: 255,
+        maxMessage: 'La dimension ne peut pas dépasser {{ limit }} caractères.'
+    )]
     private ?string $dimension = null;
 
     #[ORM\Column]
+    #[Assert\NotBlank(message: 'Veuillez renseigner la quantité en stock.')]
+    #[Assert\PositiveOrZero(message: 'Le stock ne peut pas être négatif.')]
     private ?int $stock = null;
 
     #[ORM\Column(options: ['default' => true])]
     private ?bool $isAvailable = true;
 
     #[ORM\Column(length: 255, nullable: true)]
+    #[Assert\Url(message: 'Veuillez renseigner une URL valide pour l’image.')]
     private ?string $image = null;
 
     public function __construct()
@@ -59,9 +82,9 @@ class Product
         return $this->name;
     }
 
-    public function setName(string $name): static
+    public function setName(string $name): self
     {
-        $this->name = $name;
+        $this->name = trim($name);
 
         return $this;
     }
@@ -71,9 +94,9 @@ class Product
         return $this->description;
     }
 
-    public function setDescription(string $description): static
+    public function setDescription(string $description): self
     {
-        $this->description = $description;
+        $this->description = trim($description);
 
         return $this;
     }
@@ -83,9 +106,9 @@ class Product
         return $this->model;
     }
 
-    public function setModel(string $model): static
+    public function setModel(string $model): self
     {
-        $this->model = $model;
+        $this->model = trim($model);
 
         return $this;
     }
@@ -95,9 +118,9 @@ class Product
         return $this->brand;
     }
 
-    public function setBrand(string $brand): static
+    public function setBrand(string $brand): self
     {
-        $this->brand = $brand;
+        $this->brand = trim($brand);
 
         return $this;
     }
@@ -107,9 +130,9 @@ class Product
         return $this->reference;
     }
 
-    public function setReference(string $reference): static
+    public function setReference(string $reference): self
     {
-        $this->reference = $reference;
+        $this->reference = trim($reference);
 
         return $this;
     }
@@ -119,7 +142,7 @@ class Product
         return $this->price;
     }
 
-    public function setPrice(float $price): static
+    public function setPrice(float $price): self
     {
         $this->price = $price;
 
@@ -131,9 +154,9 @@ class Product
         return $this->dimension;
     }
 
-    public function setDimension(?string $dimension): static
+    public function setDimension(?string $dimension): self
     {
-        $this->dimension = $dimension;
+        $this->dimension = trim($dimension);
 
         return $this;
     }
@@ -143,7 +166,7 @@ class Product
         return $this->stock;
     }
 
-    public function setStock(int $stock): static
+    public function setStock(int $stock): self
     {
         $this->stock = $stock;
 
@@ -155,9 +178,11 @@ class Product
         return $this->isAvailable;
     }
 
-    public function setIsAvailable(bool $isAvailable): void
+    public function setIsAvailable(bool $isAvailable): self
     {
         $this->isAvailable = $isAvailable;
+
+        return $this;
     }
 
     public function getImage(): ?string
@@ -165,10 +190,15 @@ class Product
         return $this->image;
     }
 
-    public function setImage(?string $image): static
+    public function setImage(?string $image): self
     {
         $this->image = $image;
 
         return $this;
+    }
+
+    public function __toString(): string
+    {
+        return $this->name.' ('.$this->brand.') - '.number_format($this->price, 2).'€';
     }
 }

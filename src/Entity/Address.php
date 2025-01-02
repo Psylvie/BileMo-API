@@ -4,29 +4,51 @@ namespace App\Entity;
 
 use App\Repository\AddressRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: AddressRepository::class)]
 class Address
 {
     use TimestampableTrait;
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
     private ?int $id = null;
 
     #[ORM\Column(length: 60, nullable: true)]
+    #[Assert\Length(
+        max: 60,
+        maxMessage: 'Le nom de la rue ne peut pas dépasser {{ limit }} caractères.'
+    )]
     private ?string $street = null;
 
     #[ORM\Column(length: 60)]
+    #[Assert\NotBlank(message: 'Veuillez renseigner une ville.')]
+    #[Assert\Length(
+        max: 60,
+        maxMessage: 'Le nom de la ville ne peut pas dépasser {{ limit }} caractères.'
+    )]
     private ?string $city = null;
 
     #[ORM\Column(length: 15)]
+    #[Assert\NotBlank(message: 'Veuillez renseigner un code postal.')]
+    #[Assert\Length(
+        max: 15,
+        maxMessage: 'Le code postal ne peut pas dépasser {{ limit }} caractères.'
+    )]
     private ?string $postalCode = null;
 
     #[ORM\Column(length: 60)]
+    #[Assert\NotBlank(message: 'Veuillez renseigner un pays.')]
+    #[Assert\Length(
+        max: 60,
+        maxMessage: 'Le nom du pays ne peut pas dépasser {{ limit }} caractères.'
+    )]
     private ?string $country = null;
 
-    #[ORM\ManyToOne(inversedBy: 'address')]
+    #[ORM\ManyToOne(targetEntity: Company::class, inversedBy: 'addresses')]
+    #[Assert\NotNull(message: 'Une adresse doit être associée à une société.')]
     private ?Company $company = null;
 
     public function getId(): ?int
@@ -39,9 +61,9 @@ class Address
         return $this->street;
     }
 
-    public function setStreet(?string $street): static
+    public function setStreet(?string $street): self
     {
-        $this->street = $street;
+        $this->street = trim($street);
 
         return $this;
     }
@@ -51,9 +73,9 @@ class Address
         return $this->city;
     }
 
-    public function setCity(string $city): static
+    public function setCity(string $city): self
     {
-        $this->city = $city;
+        $this->city = trim($city);
 
         return $this;
     }
@@ -63,9 +85,9 @@ class Address
         return $this->postalCode;
     }
 
-    public function setPostalCode(string $postalCode): static
+    public function setPostalCode(string $postalCode): self
     {
-        $this->postalCode = $postalCode;
+        $this->postalCode = trim($postalCode);
 
         return $this;
     }
@@ -75,9 +97,9 @@ class Address
         return $this->country;
     }
 
-    public function setCountry(string $country): static
+    public function setCountry(string $country): self
     {
-        $this->country = $country;
+        $this->country = trim($country);
 
         return $this;
     }
@@ -87,10 +109,20 @@ class Address
         return $this->company;
     }
 
-    public function setCompany(?Company $company): static
+    public function setCompany(?Company $company): self
     {
         $this->company = $company;
 
         return $this;
+    }
+
+    public function __toString(): string
+    {
+        $street = $this->street ?? '';
+        $postalCode = $this->postalCode ?? '';
+        $city = $this->city ?? '';
+        $country = $this->country ?? '';
+
+        return trim("$street, $postalCode $city, $country");
     }
 }
