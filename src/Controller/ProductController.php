@@ -8,12 +8,12 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Serializer\SerializerInterface;
 
 class ProductController extends AbstractController
 {
-
     #[Route(
         '/api/products',
         name: 'get_products',
@@ -51,5 +51,26 @@ class ProductController extends AbstractController
             'X-Total-Count' => $pagination->getTotalItemCount(),
             'X-Page' => $page,
         ], true);
+    }
+
+    #[Route(
+        '/api/products/{id}',
+        name: 'get_product_detail',
+        methods: ['GET']
+    )]
+    public function getProductDetail(
+        int $id,
+        ProductRepository $productRepository,
+        SerializerInterface $serializer,
+    ): JsonResponse {
+        $product = $productRepository->find($id);
+
+        if (!$product) {
+            throw new NotFoundHttpException("Produit avec l'ID $id non trouvé.");
+        }
+
+        $jsonContent = $serializer->serialize($product, 'json', ['groups' => 'product:read']);
+
+        return new JsonResponse($jsonContent, Response::HTTP_OK, [], true);
     }
 }
