@@ -86,4 +86,41 @@ class UsersController extends AbstractController
 
         return $this->json($user, Response::HTTP_CREATED, [], ['groups' => 'user:read']);
     }
+
+    #[Route(
+        'api/users/{userId}',
+        name: 'update_user',
+        methods: ['PATCH', 'PUT']
+    )]
+    public function updateUser(
+        int $userId,
+        Request $request,
+        UsersRepository $usersRepository,
+        EntityManagerInterface $em,
+        SerializerInterface $serializer,
+        ValidatorInterface $validator,
+    ): JsonResponse {
+        $user = $usersRepository->find($userId);
+        if (!$user) {
+            return new JsonResponse(['message' => 'User not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $data = $request->getContent();
+        $updatedUser = $serializer->deserialize($data, Users::class, 'json', ['object_to_populate' => $user]);
+
+        $errors = $validator->validate($updatedUser);
+        if (count($errors) > 0) {
+            $errorMessages = [];
+            foreach ($errors as $error) {
+                $errorMessages[] = $error->getMessage();
+            }
+
+            return new JsonResponse(['errors' => $errorMessages], Response::HTTP_BAD_REQUEST);
+        }
+
+        $em->flush();
+        $jsonContent = $serializer->serialize($updatedUser, 'json', ['groups' => 'user:read']);
+
+        return new JsonResponse($jsonContent, Response::HTTP_OK, [], true);
+    }
 }
