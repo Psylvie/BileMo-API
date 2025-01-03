@@ -2,7 +2,9 @@
 
 namespace App\Controller;
 
+use App\Entity\Product;
 use App\Repository\ProductRepository;
+use Doctrine\ORM\EntityManagerInterface;
 use Knp\Component\Pager\PaginatorInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -10,7 +12,9 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\SerializerInterface;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 class ProductController extends AbstractController
 {
@@ -72,5 +76,96 @@ class ProductController extends AbstractController
         $jsonContent = $serializer->serialize($product, 'json', ['groups' => 'product:read']);
 
         return new JsonResponse($jsonContent, Response::HTTP_OK, [], true);
+    }
+
+    #[Route(
+        '/api/products',
+        name: 'create_product',
+        methods: ['POST']
+    )]
+    public function createProduct(
+        Request $request,
+        SerializerInterface $serializer,
+        ProductRepository $productRepository,
+        EntityManagerInterface $em,
+        ValidatorInterface $validator,
+    ): JsonResponse {
+        $data = $request->getContent();
+        $product = $serializer->deserialize($data, Product::class, 'json');
+
+        $errors = $validator->validate($product);
+        if (count($errors) > 0) {
+            $errorMessages = [];
+            foreach ($errors as $error) {
+                $errorMessages[] = $error->getMessage();
+            }
+
+            return new JsonResponse(['errors' => $errorMessages], Response::HTTP_BAD_REQUEST);
+        }
+        $em->persist($product);
+        $em->flush();
+
+        $jsonContent = $serializer->serialize($product, 'json', ['groups' => 'product:read']);
+
+        return new JsonResponse($jsonContent, Response::HTTP_CREATED, [], true);
+    }
+
+    #[Route(
+        '/api/products/{id}',
+        name: 'patch_product',
+        methods: ['PATCH']
+    )]
+    public function updateProduct(
+        int $id,
+        Request $request,
+        ProductRepository $productRepository,
+        SerializerInterface $serializer,
+        EntityManagerInterface $em,
+        ValidatorInterface $validator,
+    ): JsonResponse {
+        $product = $productRepository->find($id);
+        if (!$product) {
+            return new JsonResponse(['message' => 'Produit non trouvé.'], Response::HTTP_NOT_FOUND);
+        }
+
+        $data = $request->getContent();
+        $serializer->deserialize($data, Product::class, 'json', [AbstractNormalizer::OBJECT_TO_POPULATE => $product]);
+
+        $errors = $validator->validate($product);
+        if (count($errors) > 0) {
+            $errorMessages = [];
+            foreach ($errors as $error) {
+                $errorMessages[] = $error->getMessage();
+            }
+
+            return new JsonResponse(['errors' => $errorMessages], Response::HTTP_BAD_REQUEST);
+        }
+
+        $em->flush();
+
+        $jsonContent = $serializer->serialize($product, 'json', ['groups' => 'product:read']);
+
+        return new JsonResponse($jsonContent, Response::HTTP_OK, [], true);
+    }
+
+    #[Route(
+        '/api/products/{id}',
+        name: 'delete_product',
+        methods: ['DELETE']
+    )]
+    public function deleteProduct(
+        int $id,
+        ProductRepository $productRepository,
+        EntityManagerInterface $em,
+    ): JsonResponse {
+        $product = $productRepository->find($id);
+        if (!$product) {
+            return new JsonResponse(['message' => 'Produit non trouvé.'], Response::HTTP_NOT_FOUND);
+        }
+
+        $em->remove($product);
+        $em->flush();
+
+        return new JsonResponse(['message' => 'Produit supprimé avec succès.'], Response::HTTP_NO_CONTENT);
     }
 }

@@ -7,6 +7,7 @@ use App\Repository\CompanyRepository;
 use App\Repository\UsersRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -123,4 +124,38 @@ class UsersController extends AbstractController
 
         return new JsonResponse($jsonContent, Response::HTTP_OK, [], true);
     }
+    #[Route(
+        'api/company/{companyId}/users/{userId}',
+        name: 'delete_user',
+        methods: ['DELETE']
+    )]
+    public function deleteUser(
+        int $companyId,
+        int $userId,
+        Request $request,
+        CompanyRepository $companyRepository,
+        UsersRepository $usersRepository,
+        EntityManagerInterface $em,
+        Security $security,
+    ): JsonResponse {
+
+        $company = $companyRepository->find($companyId);
+        $user = $usersRepository->find($userId);
+
+        if (!$company || !$user) {
+            return new JsonResponse(['message' => 'Company or User not found'], Response::HTTP_NOT_FOUND);
+        }
+        if (!$company->getUsers()->contains($user) && !$security->isGranted('ROLE_ADMIN')) {
+            return new JsonResponse(['message' => 'Access denied'], Response::HTTP_FORBIDDEN);
+        }
+        $user->removeCompany($company);
+        if ($user->getCompanies()->isEmpty()) {
+            $em->remove($user);
+        }
+
+        $em->flush();
+
+        return new JsonResponse(['message' => 'User removed successfully'], Response::HTTP_OK);
+    }
+
 }
