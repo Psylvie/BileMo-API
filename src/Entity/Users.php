@@ -47,8 +47,6 @@ class Users
     public function __construct()
     {
         $this->companies = new ArrayCollection();
-//        $this->createdAt = new \DateTimeImmutable();
-//        $this->updatedAt = new \DateTimeImmutable();
     }
 
     public function getId(): ?int
