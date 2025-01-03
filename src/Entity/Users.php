@@ -10,6 +10,7 @@ use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: UsersRepository::class)]
+#[ORM\HasLifecycleCallbacks]
 class Users
 {
     use TimestampableTrait;
@@ -46,6 +47,8 @@ class Users
     public function __construct()
     {
         $this->companies = new ArrayCollection();
+//        $this->createdAt = new \DateTimeImmutable();
+//        $this->updatedAt = new \DateTimeImmutable();
     }
 
     public function getId(): ?int
