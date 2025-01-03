@@ -13,7 +13,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 class Company extends AbstractAccount
 {
     #[ORM\Column(type: 'json')]
-    #[Groups(['user:read'])]
+    #[Groups(['company:read'])]
     private array $roles = [];
 
     #[ORM\Column(length: 255)]
@@ -29,12 +29,12 @@ class Company extends AbstractAccount
 
     #[ORM\Column(length: 255, nullable: true)]
     #[Assert\Url(message: 'Veuillez entrer une URL valide')]
-    #[Groups(['user:read'])]
+    #[Groups(['company:read'])]
     private ?string $webSite = null;
 
     #[ORM\Column(type: 'string', length: 20, nullable: true)]
     #[Assert\Length(max: 20, maxMessage: 'Le numéro de téléphone ne peut pas dépasser {{ limit }} caractères')]
-    #[Groups(['user:read'])]
+    #[Groups(['company:read'])]
     protected ?string $phone = null;
 
     /**
@@ -46,7 +46,7 @@ class Company extends AbstractAccount
         mappedBy: 'company',
         cascade: ['persist', 'remove'],
         orphanRemoval: true)]
-    #[Groups(['user:read'])]
+    #[Groups(['company:read'])]
     private Collection $addresses;
 
     /**
