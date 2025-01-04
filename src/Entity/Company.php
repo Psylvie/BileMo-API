@@ -10,10 +10,11 @@ use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: CompanyRepository::class)]
+#[ORM\HasLifecycleCallbacks]
 class Company extends AbstractAccount
 {
     #[ORM\Column(type: 'json')]
-    #[Groups(['company:read'])]
+    #[Groups(['company:read', 'company:write'])]
     private array $roles = [];
 
     #[ORM\Column(length: 255)]
@@ -24,17 +25,17 @@ class Company extends AbstractAccount
         minMessage: 'Le nom de la société doit comporter au moins {{ limit }} caractères',
         maxMessage: 'Le nom de la société doit comporter au maximum {{ limit }} caractères'
     )]
-    #[Groups(['user:read'])]
+    #[Groups(['user:read', 'company:read', 'company:write'])]
     private ?string $companyName = null;
 
     #[ORM\Column(length: 255, nullable: true)]
     #[Assert\Url(message: 'Veuillez entrer une URL valide')]
-    #[Groups(['company:read'])]
+    #[Groups(['company:read', 'company:write'])]
     private ?string $webSite = null;
 
     #[ORM\Column(type: 'string', length: 20, nullable: true)]
     #[Assert\Length(max: 20, maxMessage: 'Le numéro de téléphone ne peut pas dépasser {{ limit }} caractères')]
-    #[Groups(['company:read'])]
+    #[Groups(['company:read', 'company:write'])]
     protected ?string $phone = null;
 
     /**
@@ -46,7 +47,7 @@ class Company extends AbstractAccount
         mappedBy: 'company',
         cascade: ['persist', 'remove'],
         orphanRemoval: true)]
-    #[Groups(['company:read'])]
+    #[Groups(['company:read', 'company:write'])]
     private Collection $addresses;
 
     /**

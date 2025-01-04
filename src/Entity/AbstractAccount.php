@@ -5,6 +5,7 @@ namespace App\Entity;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
@@ -28,6 +29,7 @@ abstract class AbstractAccount implements UserInterface, PasswordAuthenticatedUs
         max: 255,
         maxMessage: 'L\'adresse email ne peut pas dépasser {{ limit }} caractères.'
     )]
+    #[Groups(['company:read'])]
     protected string $email;
 
     #[ORM\Column(type: 'string', length: 255)]

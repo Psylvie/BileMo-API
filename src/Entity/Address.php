@@ -8,6 +8,7 @@ use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: AddressRepository::class)]
+#[ORM\HasLifecycleCallbacks]
 class Address
 {
     use TimestampableTrait;
@@ -23,7 +24,7 @@ class Address
         max: 60,
         maxMessage: 'Le nom de la rue ne peut pas dépasser {{ limit }} caractères.'
     )]
-    #[Groups(['user:read'])]
+    #[Groups(['user:read', 'company:read'])]
     private ?string $street = null;
 
     #[ORM\Column(length: 60)]
@@ -32,7 +33,7 @@ class Address
         max: 60,
         maxMessage: 'Le nom de la ville ne peut pas dépasser {{ limit }} caractères.'
     )]
-    #[Groups(['user:read'])]
+    #[Groups(['user:read', 'company:read'])]
     private ?string $city = null;
 
     #[ORM\Column(length: 15)]
@@ -41,7 +42,7 @@ class Address
         max: 15,
         maxMessage: 'Le code postal ne peut pas dépasser {{ limit }} caractères.'
     )]
-    #[Groups(['user:read'])]
+    #[Groups(['user:read', 'company:read'])]
     private ?string $postalCode = null;
 
     #[ORM\Column(length: 60)]
@@ -50,7 +51,7 @@ class Address
         max: 60,
         maxMessage: 'Le nom du pays ne peut pas dépasser {{ limit }} caractères.'
     )]
-    #[Groups(['user:read'])]
+    #[Groups(['user:read', 'company:read'])]
     private ?string $country = null;
 
     #[ORM\ManyToOne(targetEntity: Company::class, inversedBy: 'addresses')]
