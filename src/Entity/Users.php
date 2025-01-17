@@ -6,7 +6,7 @@ use App\Repository\UsersRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
-use Symfony\Component\Serializer\Annotation\Groups;
+use JMS\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: UsersRepository::class)]
@@ -23,7 +23,7 @@ class Users
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank(message: 'Veuillez renseigner un prénom.')]
     #[Assert\Length(max: 255, maxMessage: 'Le prénom ne peut pas dépasser {{ limit }} caractères.')]
-    #[Groups(['user:read'])]
+    #[Groups(['user:read', 'company:read'])]
     private ?string $name = null;
 
     #[ORM\Column(length: 255, nullable: true)]
@@ -41,7 +41,7 @@ class Users
      * @var Collection<int, Company>
      */
     #[ORM\ManyToMany(targetEntity: Company::class, inversedBy: 'users')]
-    #[Groups(['user:read'])]
+    #[Groups(['user:read', 'user:write'])]
     private Collection $companies;
 
     public function __construct()
@@ -98,7 +98,7 @@ class Users
         return $this->companies;
     }
 
-    public function addCompany(Company $company): static
+    public function addCompany(Company $company): self
     {
         if (!$this->companies->contains($company)) {
             $this->companies->add($company);
@@ -107,7 +107,7 @@ class Users
         return $this;
     }
 
-    public function removeCompany(Company $company): static
+    public function removeCompany(Company $company): self
     {
         $this->companies->removeElement($company);
 
