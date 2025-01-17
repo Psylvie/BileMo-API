@@ -163,63 +163,6 @@ class CompanyController extends AbstractController
      */
     #[Route(
         '/api/companies/{companyId}',
-        name: 'update_company',
-        methods: ['PATCH', 'PUT'],
-    )]
-    public function updateCompany(
-        int $companyId,
-        Request $request,
-        CompanyRepository $companyRepository,
-        EntityManagerInterface $em,
-    ): JsonResponse {
-        $company = $companyRepository->find($companyId);
-        if (!$company) {
-            return new JsonResponse(['message' => 'Company not found'], Response::HTTP_NOT_FOUND);
-        }
-        $data = json_decode($request->getContent(), true);
-        if (JSON_ERROR_NONE !== json_last_error()) {
-            return new JsonResponse(['message' => 'Données JSON invalides.'], Response::HTTP_BAD_REQUEST);
-        }
-        $errors = $this->validator->validate($company);
-
-        if (isset($data['companyName'])) {
-            $company->setCompanyName($data['companyName']);
-        }
-        if (isset($data['description'])) {
-            $company->setWebSite($data['webSite']);
-        }
-        if (isset($data['model'])) {
-            $company->setPhone($data['phone']);
-        }
-        if (isset($data['email'])) {
-            $company->setEmail($data['email']);
-        }
-        if (isset($data['password'])) {
-            $company->setPassword($data['password']);
-        }
-        if (count($errors) > 0) {
-            $errorMessages = [];
-            foreach ($errors as $error) {
-                $errorMessages[] = $error->getMessage();
-            }
-
-            return new JsonResponse(['errors' => $errorMessages], Response::HTTP_BAD_REQUEST);
-        }
-
-        $em->flush();
-        $this->cache->invalidateTags(['companiesCache']);
-
-        $serializationContext = SerializationContext::create()->setGroups(['company:read']);
-        $jsonContent = $this->serializer->serialize($company, 'json', $serializationContext);
-
-        return new JsonResponse($jsonContent, Response::HTTP_OK, [], true);
-    }
-
-    /**
-     * @throws InvalidArgumentException
-     */
-    #[Route(
-        '/api/companies/{companyId}',
         name: 'delete_company',
         methods: ['DELETE'],
     )]

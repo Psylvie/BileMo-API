@@ -2,7 +2,6 @@
 
 namespace App\DataFixtures;
 
-use App\Entity\Address;
 use App\Entity\Company;
 use App\Entity\Users;
 use Doctrine\Bundle\FixturesBundle\Fixture;
@@ -12,8 +11,6 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 class CompanyFixtures extends Fixture
 {
-
-
     public function __construct(
         private readonly UserPasswordHasherInterface $passwordHasher)
     {
@@ -31,20 +28,8 @@ class CompanyFixtures extends Fixture
                 ->setEmail($faker->email)
                 ->setPhone($faker->phoneNumber)
                 ->setWebSite($faker->url)
-                ->setRoles(['ROLE_COMPANY'])
-                ->setPassword($hashedPassword);
-
-            for ($j = 0; $j < rand(1, 2); ++$j) {
-                $address = new Address();
-                $address->setStreet($faker->streetName);
-                $address->setCity($faker->city);
-                $address->setPostalCode($faker->postcode);
-                $address->setCountry($faker->country);
-
-                $company->addAddress($address);
-                $address->initializeTimestampable();
-                $manager->persist($address);
-            }
+                ->setPassword($hashedPassword)
+                ->setRoles(['ROLE_COMPANY']);
 
             for ($k = 0; $k < rand(1, 10); ++$k) {
                 $user = new Users();
@@ -58,7 +43,6 @@ class CompanyFixtures extends Fixture
             }
 
             $company->initializeTimestampable();
-
             $manager->persist($company);
         }
 

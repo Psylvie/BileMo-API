@@ -3,9 +3,9 @@
 namespace App\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
+use JMS\Serializer\Annotation\Groups;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
-use JMS\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
@@ -21,6 +21,8 @@ abstract class AbstractAccount implements UserInterface, PasswordAuthenticatedUs
     #[ORM\GeneratedValue]
     #[ORM\Column(type: 'integer')]
     protected ?int $id = null;
+    #[ORM\Column(type: 'json')]
+    private array $roles = [];
 
     #[ORM\Column(type: 'string', length: 255, unique: true)]
     #[Assert\NotBlank(message: 'L\'adresse email est obligatoire.')]
@@ -40,9 +42,33 @@ abstract class AbstractAccount implements UserInterface, PasswordAuthenticatedUs
     )]
     protected string $password;
 
+    public function __construct()
+    {
+        $this->setDefaultRoles();
+    }
+
     public function getId(): ?int
     {
         return $this->id;
+    }
+
+    public function getRoles(): array
+    {
+        return $this->roles;
+    }
+
+    public function setRoles(array $roles): void
+    {
+        $this->roles = $roles;
+    }
+
+    public function setDefaultRoles(): self
+    {
+        if (empty($this->roles)) {
+            $this->roles = ['ROLE_COMPANY'];
+        }
+
+        return $this;
     }
 
     public function getEmail(): string

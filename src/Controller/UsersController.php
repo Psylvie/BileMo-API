@@ -100,53 +100,6 @@ class UsersController extends AbstractController
         return new JsonResponse($jsonContent, Response::HTTP_CREATED, [], true);
     }
 
-    /**
-     * @throws InvalidArgumentException
-     */
-    #[Route(
-        'api/users/{userId}',
-        name: 'update_user',
-        methods: ['PATCH', 'PUT']
-    )]
-    public function updateUser(
-        int $userId,
-        Request $request,
-        UsersRepository $usersRepository,
-        EntityManagerInterface $em,
-    ): JsonResponse {
-        $user = $usersRepository->find($userId);
-        if (!$user) {
-            return $this->createErrorResponse('User not found', Response::HTTP_NOT_FOUND);
-        }
-
-        $data = json_decode($request->getContent(), true);
-        if (JSON_ERROR_NONE !== json_last_error()) {
-            return new JsonResponse(['message' => 'Invalid JSON data'], Response::HTTP_BAD_REQUEST);
-        }
-        if (isset($data['name'])) {
-            $user->setName($data['name']);
-        }
-        if (isset($data['lastName'])) {
-            $user->setLastName($data['lastName']);
-        }
-        if (isset($data['email'])) {
-            $user->setEmail($data['email']);
-        }
-
-        $errors = $this->getValidationErrors($user);
-        if (!empty($errors)) {
-            return new JsonResponse(['errors' => $errors], Response::HTTP_BAD_REQUEST);
-        }
-
-        $em->flush();
-        $this->cache->invalidateTags(['usersCache']);
-
-        $serializationContext = SerializationContext::create()->setGroups(['user:read']);
-        $jsonContent = $this->serializer->serialize($user, 'json', $serializationContext);
-
-        return new JsonResponse($jsonContent, Response::HTTP_OK, [], true);
-    }
-
     #[Route(
         'api/company/{companyId}/users/{userId}',
         name: 'delete_user',

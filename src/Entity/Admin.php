@@ -10,10 +10,6 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\HasLifecycleCallbacks]
 class Admin extends AbstractAccount
 {
-
-    #[ORM\Column(type: 'json')]
-    private array $roles = [];
-
     #[ORM\Column(type: 'string', length: 255)]
     #[Assert\NotBlank(message: 'Le nom est obligatoire.')]
     #[Assert\Length(
@@ -34,6 +30,12 @@ class Admin extends AbstractAccount
     )]
     protected string $lastName;
 
+    public function __construct()
+    {
+        parent::__construct();
+        $this->setRoles(['ROLE_ADMIN']);
+    }
+
     public function getName(): string
     {
         return $this->name;
@@ -52,22 +54,5 @@ class Admin extends AbstractAccount
     public function setLastName(string $lastName): void
     {
         $this->lastName = $lastName;
-    }
-
-    public function getRoles(): array
-    {
-        $roles = $this->roles;
-        if (empty($roles)) {
-            $roles[] = 'ROLE_ADMIN';
-        }
-
-        return $roles;
-    }
-
-    public function setRoles(array $roles): self
-    {
-        $this->roles = $roles;
-
-        return $this;
     }
 }

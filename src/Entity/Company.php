@@ -13,10 +13,6 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\HasLifecycleCallbacks]
 class Company extends AbstractAccount
 {
-    #[ORM\Column(type: 'json')]
-    #[Groups(['company:read', 'company:write'])]
-    private array $roles = [];
-
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank(message: 'Veuillez entrer le nom de la société')]
     #[Assert\Length(
@@ -39,18 +35,6 @@ class Company extends AbstractAccount
     protected ?string $phone = null;
 
     /**
-     * List of addresses associated with the company.
-     *
-     * @var Collection<int, Address>
-     */
-    #[ORM\OneToMany(targetEntity: Address::class,
-        mappedBy: 'company',
-        cascade: ['persist', 'remove'],
-        orphanRemoval: true)]
-    #[Groups(['company:read', 'company:write'])]
-    private Collection $addresses;
-
-    /**
      * @var Collection<int, Users>
      */
     #[ORM\ManyToMany(targetEntity: Users::class, mappedBy: 'companies')]
@@ -59,9 +43,8 @@ class Company extends AbstractAccount
 
     public function __construct()
     {
-        $this->addresses = new ArrayCollection();
+        parent::__construct();
         $this->users = new ArrayCollection();
-        $this->roles[] = 'ROLE_COMPANY';
     }
 
     public function getId(): ?int
@@ -106,35 +89,6 @@ class Company extends AbstractAccount
     }
 
     /**
-     * @return Collection<int, Address>
-     */
-    public function getAddresses(): Collection
-    {
-        return $this->addresses;
-    }
-
-    public function addAddress(Address $address): self
-    {
-        if (!$this->addresses->contains($address)) {
-            $this->addresses->add($address);
-            $address->setCompany($this);
-        }
-
-        return $this;
-    }
-
-    public function removeAddress(Address $address): self
-    {
-        if ($this->addresses->removeElement($address)) {
-            if ($address->getCompany() === $this) {
-                $address->setCompany(null);
-            }
-        }
-
-        return $this;
-    }
-
-    /**
      * @return Collection<int, Users>
      */
     public function getUsers(): Collection
@@ -159,19 +113,5 @@ class Company extends AbstractAccount
         }
 
         return $this;
-    }
-
-    public function setRoles(array $roles): self
-    {
-        $this->roles = $roles;
-        return $this;
-    }
-    public function getRoles(): array
-    {
-        if (empty($this->roles)) {
-            $this->roles[] = 'ROLE_COMPANY';
-        }
-
-        return $this->roles;
     }
 }
