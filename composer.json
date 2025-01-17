@@ -20,7 +20,8 @@
         "symfony/security-bundle": "7.2.*",
         "symfony/serializer": "7.2.*",
         "symfony/validator": "7.2.*",
-        "symfony/yaml": "7.2.*"
+        "symfony/yaml": "7.2.*",
+        "willdurand/hateoas-bundle": "^2.7"
     },
     "config": {
         "allow-plugins": {

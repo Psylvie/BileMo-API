@@ -4,7 +4,7 @@ namespace App\Entity;
 
 use App\Repository\ProductRepository;
 use Doctrine\ORM\Mapping as ORM;
-use Symfony\Component\Serializer\Annotation\Groups;
+use JMS\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: ProductRepository::class)]
@@ -76,7 +76,6 @@ class Product
     private ?bool $isAvailable = true;
 
     #[ORM\Column(length: 255, nullable: true)]
-    #[Assert\Url(message: 'Veuillez renseigner une URL valide pour l’image.')]
     #[Groups(['product:read', 'product:write'])]
     private ?string $image = null;
 

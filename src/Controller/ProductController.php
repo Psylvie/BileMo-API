@@ -5,19 +5,32 @@ namespace App\Controller;
 use App\Entity\Product;
 use App\Repository\ProductRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use JMS\Serializer\SerializationContext;
+use JMS\Serializer\SerializerInterface;
 use Knp\Component\Pager\PaginatorInterface;
+use Psr\Cache\InvalidArgumentException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Annotation\Route;
-use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
-use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Symfony\Contracts\Cache\ItemInterface;
+use Symfony\Contracts\Cache\TagAwareCacheInterface;
 
 class ProductController extends AbstractController
 {
+    public function __construct(
+        private readonly SerializerInterface $serializer,
+        private readonly ValidatorInterface $validator,
+        private readonly TagAwareCacheInterface $cache,
+    ) {
+    }
+
+    /**
+     * @throws InvalidArgumentException
+     */
     #[Route(
         '/api/products',
         name: 'get_products',
@@ -25,38 +38,51 @@ class ProductController extends AbstractController
     )]
     public function getProducts(
         ProductRepository $productRepository,
-        SerializerInterface $serializer,
         PaginatorInterface $paginator,
         Request $request,
     ): JsonResponse {
-        $query = $productRepository->createQueryBuilder('p')->getQuery();
-
         $page = $request->query->getInt('page', 1);
         $limit = $request->query->getInt('limit', 10);
 
-        // if limit = 0 or if is too big all the products
-        if (0 === $limit || $limit > 1000) {
-            $products = $productRepository->findAll();
-            $jsonContent = $serializer->serialize($products, 'json', ['groups' => 'product:read']);
-
-            return new JsonResponse($jsonContent, Response::HTTP_OK, [], true);
+        if ($limit <= 0 || $limit > 1000) {
+            return new JsonResponse(['error' => 'Invalid limit value.'], Response::HTTP_BAD_REQUEST);
         }
 
-        // Pagination
-        $pagination = $paginator->paginate(
-            $query,
-            $page,
-            $limit
-        );
+        if ($page <= 0) {
+            return new JsonResponse(['error' => 'Invalid page value.'], Response::HTTP_BAD_REQUEST);
+        }
+        $idCache = 'getProducts-'.$page.'-'.$limit;
 
-        $jsonContent = $serializer->serialize($pagination->getItems(), 'json', ['groups' => 'product:read']);
+        try {
+            $productList = $this->cache->get($idCache, function (ItemInterface $item) use ($productRepository, $paginator, $page, $limit) {
+                $item->tag('productsCache');
+                $query = $productRepository->createQueryBuilder('p')->getQuery();
+                $pagination = $paginator->paginate($query, $page, $limit);
 
-        return new JsonResponse($jsonContent, Response::HTTP_OK, [
-            'X-Total-Count' => $pagination->getTotalItemCount(),
-            'X-Page' => $page,
-        ], true);
+                $item->expiresAfter(3600);
+
+                return [
+                    'products' => $pagination->getItems(),
+                    'totalCount' => $pagination->getTotalItemCount(),
+                ];
+            });
+
+            $context = SerializationContext::create()->setGroups(['product:read']);
+            $jsonContent = $this->serializer->serialize($productList, 'json', $context);
+
+            return new JsonResponse($jsonContent, Response::HTTP_OK, [
+                'X-Total-Count' => $productList['totalCount'],
+                'X-Page' => $page,
+                'X-Limit' => $limit,
+            ], true);
+        } catch (\Exception $e) {
+            return new JsonResponse(['error' => 'An unexpected error occurred.'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 
+    /**
+     * @throws InvalidArgumentException
+     */
     #[Route(
         '/api/products/{id}',
         name: 'get_product_detail',
@@ -65,19 +91,33 @@ class ProductController extends AbstractController
     public function getProductDetail(
         int $id,
         ProductRepository $productRepository,
-        SerializerInterface $serializer,
     ): JsonResponse {
-        $product = $productRepository->find($id);
+        $cacheKey = 'getProductDetail-'.$id;
 
-        if (!$product) {
-            throw new NotFoundHttpException("Produit avec l'ID $id non trouvé.");
+        try {
+            $product = $this->cache->get($cacheKey, function (ItemInterface $item) use ($productRepository, $id) {
+                $item->tag('productsCache');
+                $product = $productRepository->find($id);
+
+                if (!$product) {
+                    throw new NotFoundHttpException("Produit avec l'ID $id non trouvé.");
+                }
+
+                return $product;
+            });
+
+            $context = SerializationContext::create()->setGroups(['product:read']);
+            $jsonContent = $this->serializer->serialize($product, 'json', $context);
+
+            return new JsonResponse($jsonContent, Response::HTTP_OK, [], true);
+        } catch (NotFoundHttpException $e) {
+            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_NOT_FOUND);
         }
-
-        $jsonContent = $serializer->serialize($product, 'json', ['groups' => 'product:read']);
-
-        return new JsonResponse($jsonContent, Response::HTTP_OK, [], true);
     }
 
+    /**
+     * @throws InvalidArgumentException
+     */
     #[Route(
         '/api/products',
         name: 'create_product',
@@ -85,31 +125,30 @@ class ProductController extends AbstractController
     )]
     public function createProduct(
         Request $request,
-        SerializerInterface $serializer,
-        ProductRepository $productRepository,
         EntityManagerInterface $em,
-        ValidatorInterface $validator,
     ): JsonResponse {
         $data = $request->getContent();
-        $product = $serializer->deserialize($data, Product::class, 'json');
+        $product = $this->serializer->deserialize($data, Product::class, 'json');
 
-        $errors = $validator->validate($product);
-        if (count($errors) > 0) {
-            $errorMessages = [];
-            foreach ($errors as $error) {
-                $errorMessages[] = $error->getMessage();
-            }
-
-            return new JsonResponse(['errors' => $errorMessages], Response::HTTP_BAD_REQUEST);
+        $errors = $this->getValidationErrors($product);
+        if (!empty($errors)) {
+            return new JsonResponse(['errors' => $errors], Response::HTTP_BAD_REQUEST);
         }
+
         $em->persist($product);
         $em->flush();
 
-        $jsonContent = $serializer->serialize($product, 'json', ['groups' => 'product:read']);
+        $this->cache->invalidateTags(['productCache']);
+
+        $context = SerializationContext::create()->setGroups(['product:read']);
+        $jsonContent = $this->serializer->serialize($product, 'json', $context);
 
         return new JsonResponse($jsonContent, Response::HTTP_CREATED, [], true);
     }
 
+    /**
+     * @throws InvalidArgumentException
+     */
     #[Route(
         '/api/products/{id}',
         name: 'patch_product',
@@ -119,35 +158,68 @@ class ProductController extends AbstractController
         int $id,
         Request $request,
         ProductRepository $productRepository,
-        SerializerInterface $serializer,
         EntityManagerInterface $em,
-        ValidatorInterface $validator,
     ): JsonResponse {
         $product = $productRepository->find($id);
         if (!$product) {
             return new JsonResponse(['message' => 'Produit non trouvé.'], Response::HTTP_NOT_FOUND);
         }
 
-        $data = $request->getContent();
-        $serializer->deserialize($data, Product::class, 'json', [AbstractNormalizer::OBJECT_TO_POPULATE => $product]);
+        $data = json_decode($request->getContent(), true);
+        if (JSON_ERROR_NONE !== json_last_error()) {
+            return new JsonResponse(['message' => 'Données JSON invalides.'], Response::HTTP_BAD_REQUEST);
+        }
 
-        $errors = $validator->validate($product);
-        if (count($errors) > 0) {
-            $errorMessages = [];
-            foreach ($errors as $error) {
-                $errorMessages[] = $error->getMessage();
-            }
+        if (isset($data['name'])) {
+            $product->setName($data['name']);
+        }
+        if (isset($data['description'])) {
+            $product->setDescription($data['description']);
+        }
+        if (isset($data['model'])) {
+            $product->setModel($data['model']);
+        }
+        if (isset($data['brand'])) {
+            $product->setBrand($data['brand']);
+        }
+        if (isset($data['reference'])) {
+            $product->setReference($data['reference']);
+        }
+        if (isset($data['price'])) {
+            $product->setPrice((float) $data['price']);
+        }
+        if (isset($data['dimension'])) {
+            $product->setDimension($data['dimension']);
+        }
+        if (isset($data['stock'])) {
+            $product->setStock((int) $data['stock']);
+        }
+        if (isset($data['isAvailable'])) {
+            $product->setIsAvailable((bool) $data['isAvailable']);
+        }
+        if (isset($data['image'])) {
+            $product->setImage($data['image']);
+        }
 
-            return new JsonResponse(['errors' => $errorMessages], Response::HTTP_BAD_REQUEST);
+        $errors = $this->getValidationErrors($product);
+        if (!empty($errors)) {
+            return new JsonResponse(['errors' => $errors], Response::HTTP_BAD_REQUEST);
         }
 
         $em->flush();
 
-        $jsonContent = $serializer->serialize($product, 'json', ['groups' => 'product:read']);
+        $this->cache->invalidateTags(['productCache']);
+        $this->cache->delete('getProductDetail-'.$id);
+
+        $serializationContext = SerializationContext::create()->setGroups(['product:read']);
+        $jsonContent = $this->serializer->serialize($product, 'json', $serializationContext);
 
         return new JsonResponse($jsonContent, Response::HTTP_OK, [], true);
     }
 
+    /**
+     * @throws InvalidArgumentException
+     */
     #[Route(
         '/api/products/{id}',
         name: 'delete_product',
@@ -165,7 +237,18 @@ class ProductController extends AbstractController
 
         $em->remove($product);
         $em->flush();
+        $this->cache->invalidateTags(['productCache']);
 
         return new JsonResponse(['message' => 'Produit supprimé avec succès.'], Response::HTTP_NO_CONTENT);
+    }
+
+    private function getValidationErrors($entity): array
+    {
+        $errors = $this->validator->validate($entity);
+        if (count($errors) > 0) {
+            return array_map(fn ($error) => $error->getMessage(), iterator_to_array($errors));
+        }
+
+        return [];
     }
 }

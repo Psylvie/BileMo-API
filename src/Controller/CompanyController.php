@@ -5,35 +5,60 @@ namespace App\Controller;
 use App\Entity\Company;
 use App\Repository\CompanyRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use JMS\Serializer\SerializationContext;
+use JMS\Serializer\SerializerInterface;
+use Psr\Cache\InvalidArgumentException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Annotation\Route;
-use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Symfony\Contracts\Cache\ItemInterface;
+use Symfony\Contracts\Cache\TagAwareCacheInterface;
 
 class CompanyController extends AbstractController
 {
+    public function __construct(
+        private readonly SerializerInterface $serializer,
+        private readonly ValidatorInterface $validator,
+        private readonly TagAwareCacheInterface $cache,
+    ) {
+    }
+
+    /**
+     * @throws InvalidArgumentException
+     */
     #[Route(
         '/api/companies/{companyId}/users',
         name: 'get_users_by_company',
         methods: ['GET'],
     )]
-    public function getCompanyUsers(int $companyId, CompanyRepository $companyRepository, SerializerInterface $serializer): JsonResponse
-    {
-        $company = $companyRepository->find($companyId);
+    public function getCompanyUsers(
+        int $companyId,
+        CompanyRepository $companyRepository,
+    ): JsonResponse {
+        $cacheKey = 'getCompanyUsers-'.$companyId;
+        try {
+            $users = $this->cache->get($cacheKey, function (ItemInterface $item) use ($companyRepository, $companyId) {
+                $item->tag('companiesCache');
+                $company = $companyRepository->find($companyId);
 
-        if (!$company) {
-            return new JsonResponse(['message' => 'Company not found'], Response::HTTP_NOT_FOUND);
+                if (!$company) {
+                    throw new \RuntimeException('Company not found');
+                }
+
+                return $company->getUsers();
+            });
+
+            $context = SerializationContext::create()->setGroups(['user:read', 'company:read']);
+            $jsonContent = $this->serializer->serialize($users, 'json', $context);
+
+            return new JsonResponse($jsonContent, Response::HTTP_OK, [], true);
+        } catch (\RuntimeException $e) {
+            return new JsonResponse(['message' => $e->getMessage()], Response::HTTP_NOT_FOUND);
         }
-
-        $users = $company->getUsers();
-
-        $jsonContent = $serializer->serialize($users, 'json', ['groups' => 'user:read']);
-
-        return new JsonResponse($jsonContent, Response::HTTP_OK, [], true);
     }
 
     #[Route(
@@ -43,12 +68,23 @@ class CompanyController extends AbstractController
     )]
     public function getCompanies(
         CompanyRepository $companyRepository,
-        SerializerInterface $serializer,
     ): JsonResponse {
-        $companies = $companyRepository->findAll();
-        $jsonContent = $serializer->serialize($companies, 'json', ['groups' => 'company:read']);
+        $cacheKey = 'getCompanies';
 
-        return new JsonResponse($jsonContent, Response::HTTP_OK, [], true);
+        try {
+            $companies = $this->cache->get($cacheKey, function (ItemInterface $item) use ($companyRepository) {
+                $item->tag('companiesCache');
+
+                return $companyRepository->findAll();
+            });
+
+            $context = SerializationContext::create()->setGroups(['company:read']);
+            $jsonContent = $this->serializer->serialize($companies, 'json', $context);
+
+            return new JsonResponse($jsonContent, Response::HTTP_OK, [], true);
+        } catch (\Exception $e) {
+            return new JsonResponse(['message' => 'Error while fetching companies'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 
     #[Route(
@@ -59,17 +95,33 @@ class CompanyController extends AbstractController
     public function getCompanyDetails(
         int $companyId,
         CompanyRepository $companyRepository,
-        SerializerInterface $serializer,
     ): JsonResponse {
-        $company = $companyRepository->find($companyId);
-        if (!$company) {
-            return new JsonResponse(['message' => 'Company not found'], Response::HTTP_NOT_FOUND);
-        }
-        $jsonContent = $serializer->serialize($company, 'json', ['groups' => 'company:read']);
+        $cacheKey = 'getCompanyDetail-'.$companyId;
 
-        return new JsonResponse($jsonContent, Response::HTTP_OK, [], true);
+        try {
+            $company = $this->cache->get($cacheKey, function (ItemInterface $item) use ($companyRepository, $companyId) {
+                $item->tag('companiesCache');
+                $company = $companyRepository->find($companyId);
+
+                if (!$company) {
+                    throw new \RuntimeException('Company not found');
+                }
+
+                return $company;
+            });
+            $context = SerializationContext::create()->setGroups(['company:read']);
+
+            $jsonContent = $this->serializer->serialize($company, 'json', $context);
+
+            return new JsonResponse($jsonContent, Response::HTTP_OK, [], true);
+        } catch (\RuntimeException $e) {
+            return new JsonResponse(['message' => $e->getMessage()], Response::HTTP_NOT_FOUND);
+        }
     }
 
+    /**
+     * @throws InvalidArgumentException
+     */
     #[Route(
         '/api/companies',
         name: 'create_company',
@@ -78,14 +130,12 @@ class CompanyController extends AbstractController
     public function createCompany(
         Request $request,
         EntityManagerInterface $em,
-        SerializerInterface $serializer,
-        ValidatorInterface $validator,
         UserPasswordHasherInterface $passwordHasher,
     ): JsonResponse {
         $data = $request->getContent();
-        $company = $serializer->deserialize($data, Company::class, 'json');
+        $company = $this->serializer->deserialize($data, Company::class, 'json');
 
-        $errors = $validator->validate($company);
+        $errors = $this->validator->validate($company);
         if (count($errors) > 0) {
             $errorMessages = [];
             foreach ($errors as $error) {
@@ -99,12 +149,18 @@ class CompanyController extends AbstractController
         );
         $em->persist($company);
         $em->flush();
+        $this->cache->invalidateTags(['companiesCache']);
 
-        $jsonContent = $serializer->serialize($company, 'json', ['groups' => 'company:read']);
+        $context = SerializationContext::create()->setGroups(['company:read']);
+
+        $jsonContent = $this->serializer->serialize($company, 'json', $context);
 
         return new JsonResponse($jsonContent, Response::HTTP_CREATED, [], true);
     }
 
+    /**
+     * @throws InvalidArgumentException
+     */
     #[Route(
         '/api/companies/{companyId}',
         name: 'update_company',
@@ -115,16 +171,32 @@ class CompanyController extends AbstractController
         Request $request,
         CompanyRepository $companyRepository,
         EntityManagerInterface $em,
-        SerializerInterface $serializer,
-        ValidatorInterface $validator,
     ): JsonResponse {
         $company = $companyRepository->find($companyId);
         if (!$company) {
             return new JsonResponse(['message' => 'Company not found'], Response::HTTP_NOT_FOUND);
         }
-        $data = $request->getContent();
-        $serializer->deserialize($data, Company::class, 'json', ['object_to_populate' => $company]);
-        $errors = $validator->validate($company);
+        $data = json_decode($request->getContent(), true);
+        if (JSON_ERROR_NONE !== json_last_error()) {
+            return new JsonResponse(['message' => 'Données JSON invalides.'], Response::HTTP_BAD_REQUEST);
+        }
+        $errors = $this->validator->validate($company);
+
+        if (isset($data['companyName'])) {
+            $company->setCompanyName($data['companyName']);
+        }
+        if (isset($data['description'])) {
+            $company->setWebSite($data['webSite']);
+        }
+        if (isset($data['model'])) {
+            $company->setPhone($data['phone']);
+        }
+        if (isset($data['email'])) {
+            $company->setEmail($data['email']);
+        }
+        if (isset($data['password'])) {
+            $company->setPassword($data['password']);
+        }
         if (count($errors) > 0) {
             $errorMessages = [];
             foreach ($errors as $error) {
@@ -135,12 +207,17 @@ class CompanyController extends AbstractController
         }
 
         $em->flush();
+        $this->cache->invalidateTags(['companiesCache']);
 
-        $jsonContent = $serializer->serialize($company, 'json', ['groups' => 'company:read']);
+        $serializationContext = SerializationContext::create()->setGroups(['company:read']);
+        $jsonContent = $this->serializer->serialize($company, 'json', $serializationContext);
 
         return new JsonResponse($jsonContent, Response::HTTP_OK, [], true);
     }
 
+    /**
+     * @throws InvalidArgumentException
+     */
     #[Route(
         '/api/companies/{companyId}',
         name: 'delete_company',
@@ -157,6 +234,7 @@ class CompanyController extends AbstractController
         }
         $em->remove($company);
         $em->flush();
+        $this->cache->invalidateTags(['companiesCache']);
 
         return new JsonResponse(json_encode(['message' => 'Company deleted successfully']), Response::HTTP_OK, [], true);
     }
