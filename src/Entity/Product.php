@@ -27,12 +27,8 @@ class Product
     #[Groups(['product:read', 'product:write'])]
     private ?string $name = null;
 
-    #[ORM\Column(length: 255)]
+    #[ORM\Column(type: 'text')]
     #[Assert\NotBlank(message: 'Veuillez renseigner une description pour le produit.')]
-    #[Assert\Length(
-        max: 255,
-        maxMessage: 'La description du produit ne peut pas dépasser {{ limit }} caractères.'
-    )]
     #[Groups(['product:read', 'product:write'])]
     private ?string $description = null;
 
