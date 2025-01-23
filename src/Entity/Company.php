@@ -47,6 +47,11 @@ class Company extends AbstractAccount
         $this->users = new ArrayCollection();
     }
 
+    public function getRoles(): array
+    {
+        return ['ROLE_COMPANY'];
+    }
+
     public function getId(): ?int
     {
         return $this->id;

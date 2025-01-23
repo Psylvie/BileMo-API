@@ -36,6 +36,11 @@ class Admin extends AbstractAccount
         $this->setRoles(['ROLE_ADMIN']);
     }
 
+    public function getRoles(): array
+    {
+        return ['ROLE_ADMIN'];
+    }
+
     public function getName(): string
     {
         return $this->name;

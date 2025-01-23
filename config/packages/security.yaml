@@ -4,14 +4,53 @@ security:
         Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
     # https://symfony.com/doc/current/security.html#loading-the-user-the-user-provider
     providers:
-        users_in_memory: { memory: null }
+        company_provider:
+            entity:
+                class: App\Entity\Company
+                property: email
+        admin_provider:
+            entity:
+                class: App\Entity\Admin
+                property: email
     firewalls:
         dev:
             pattern: ^/(_(profiler|wdt)|css|images|js)/
             security: false
-        main:
-            lazy: true
-            provider: users_in_memory
+#        main:
+#            lazy: true
+#            provider: users_in_memory
+        login:
+            pattern: ^/api/login
+            stateless: true
+            provider: company_provider
+            json_login:
+                check_path: /api/login_check
+                username_path: email
+                password_path: password
+                success_handler: lexik_jwt_authentication.handler.authentication_success
+                failure_handler: lexik_jwt_authentication.handler.authentication_failure
+
+        admin_login:
+            pattern: ^/admin/login
+            stateless: true
+            provider: admin_provider
+            json_login:
+                check_path: /admin/login_check
+                username_path: email
+                password_path: password
+                success_handler: lexik_jwt_authentication.handler.authentication_success
+                failure_handler: lexik_jwt_authentication.handler.authentication_failure
+        api:
+            pattern: ^/api
+            stateless: true
+            provider: company_provider
+            jwt: ~
+
+        admin:
+            pattern: ^/admin
+            stateless: true
+            provider: admin_provider
+            jwt: ~
 
             # activate different ways to authenticate
             # https://symfony.com/doc/current/security.html#the-firewall
@@ -22,8 +61,10 @@ security:
     # Easy way to control access for large sections of your site
     # Note: Only the *first* access control that matches will be used
     access_control:
-        # - { path: ^/admin, roles: ROLE_ADMIN }
-        # - { path: ^/profile, roles: ROLE_USER }
+        - { path: ^/admin, roles: ROLE_ADMIN }
+        - { path: ^/api, roles: [ROLE_ADMIN, ROLE_COMPANY]}
+        - { path: ^/api/login, roles: PUBLIC_ACCESS }
+        - { path: ^/admin/login, roles: PUBLIC_ACCESS }
 
 when@test:
     security:
