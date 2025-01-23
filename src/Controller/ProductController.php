@@ -15,6 +15,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\Cache\TagAwareCacheInterface;
@@ -36,6 +37,7 @@ class ProductController extends AbstractController
         name: 'get_products',
         methods: ['GET']
     )]
+    #[IsGranted("ROLE_COMPANY", message: 'Vous n\'avez pas les droits suffisants')]
     public function getProducts(
         ProductRepository $productRepository,
         PaginatorInterface $paginator,
