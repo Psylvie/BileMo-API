@@ -6,9 +6,26 @@ use App\Repository\UsersRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use Hateoas\Configuration\Annotation as Hateoas;
 use JMS\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
+
+#[Hateoas\Relation(
+    name: 'user_delete',
+    href: "expr('/api/companies/' ~ object.getCompanies().first().getId() ~ '/users/' ~ object.getId())",
+    exclusion: new Hateoas\Exclusion(groups: ['user:read'])
+)]
+#[Hateoas\Relation(
+    name: 'user_detail',
+    href: "expr('/api/company/' ~ object.getCompanies().first().getId() ~ '/users/' ~ object.getId())]",
+    exclusion: new Hateoas\Exclusion(groups: ['user:read']),
+)]
+#[Hateoas\Relation(
+    name: 'company_detail',
+    href: "expr('/api/company/' ~ object.getCompanies().first().getId())]",
+    exclusion: new Hateoas\Exclusion(groups: ['user:read']),
+)]
 #[ORM\Entity(repositoryClass: UsersRepository::class)]
 #[ORM\HasLifecycleCallbacks]
 class Users
@@ -17,7 +34,7 @@ class Users
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
-    #[Groups(['user:read'])]
+    #[Groups(['user:read', 'company:read'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
@@ -41,7 +58,7 @@ class Users
      * @var Collection<int, Company>
      */
     #[ORM\ManyToMany(targetEntity: Company::class, inversedBy: 'users')]
-    #[Groups(['user:read', 'user:write'])]
+    #[Groups(['user:read', 'company:read'])]
     private Collection $companies;
 
     public function __construct()
