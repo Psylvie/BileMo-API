@@ -37,7 +37,7 @@ class ProductController extends AbstractController
         name: 'get_products',
         methods: ['GET']
     )]
-    #[IsGranted("ROLE_COMPANY", message: 'Vous n\'avez pas les droits suffisants')]
+    #[IsGranted('IS_AUTHENTICATED_FULLY', message: 'Vous devez être authentifié pour accéder à cette ressource')]
     public function getProducts(
         ProductRepository $productRepository,
         PaginatorInterface $paginator,
@@ -90,6 +90,7 @@ class ProductController extends AbstractController
         name: 'get_product_detail',
         methods: ['GET']
     )]
+    #[IsGranted('IS_AUTHENTICATED_FULLY', message: 'Vous devez être authentifié pour accéder à cette ressource')]
     public function getProductDetail(
         int $id,
         ProductRepository $productRepository,
@@ -125,6 +126,7 @@ class ProductController extends AbstractController
         name: 'create_product',
         methods: ['POST']
     )]
+    #[IsGranted('ROLE_ADMIN', message: 'Accès réservé aux administrateurs')]
     public function createProduct(
         Request $request,
         EntityManagerInterface $em,
@@ -156,6 +158,7 @@ class ProductController extends AbstractController
         name: 'delete_product',
         methods: ['DELETE']
     )]
+    #[IsGranted('ROLE_ADMIN', message: 'Accès réservé aux administrateurs')]
     public function deleteProduct(
         int $id,
         ProductRepository $productRepository,
@@ -170,7 +173,7 @@ class ProductController extends AbstractController
         $em->flush();
         $this->cache->invalidateTags(['productCache']);
 
-        return new JsonResponse(['message' => 'Produit supprimé avec succès.'], Response::HTTP_NO_CONTENT);
+        return new JsonResponse(['message' => 'Produit supprimé avec succès.'], Response::HTTP_OK);
     }
 
     private function getValidationErrors($entity): array

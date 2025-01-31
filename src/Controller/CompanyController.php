@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Entity\Admin;
 use App\Entity\Company;
 use App\Repository\CompanyRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -9,6 +10,7 @@ use JMS\Serializer\SerializationContext;
 use JMS\Serializer\SerializerInterface;
 use Psr\Cache\InvalidArgumentException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -25,6 +27,7 @@ class CompanyController extends AbstractController
         private readonly SerializerInterface $serializer,
         private readonly ValidatorInterface $validator,
         private readonly TagAwareCacheInterface $cache,
+        private readonly Security $security,
     ) {
     }
 
@@ -40,6 +43,19 @@ class CompanyController extends AbstractController
         int $companyId,
         CompanyRepository $companyRepository,
     ): JsonResponse {
+        $currentAccount = $this->security->getToken()->getUser();
+
+        if (!$currentAccount instanceof Company && !$currentAccount instanceof Admin) {
+            return new JsonResponse(['message' => 'Access denied'], Response::HTTP_FORBIDDEN);
+        }
+        $company = $companyRepository->find($companyId);
+        if (!$company) {
+            return new JsonResponse(['message' => 'Company not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        if ($currentAccount instanceof Company && $currentAccount->getId() !== $company->getId()) {
+            return new JsonResponse(['message' => 'Access denied'], Response::HTTP_FORBIDDEN);
+        }
         $cacheKey = 'getCompanyUsers-'.$companyId;
         try {
             $users = $this->cache->get($cacheKey, function (ItemInterface $item) use ($companyRepository, $companyId) {
@@ -62,11 +78,15 @@ class CompanyController extends AbstractController
         }
     }
 
+    /**
+     * @throws InvalidArgumentException
+     */
     #[Route(
         '/api/companies',
         name: 'get_companies',
         methods: ['GET'],
     )]
+    #[IsGranted('ROLE_ADMIN', message: 'Accès réservé aux administrateurs')]
     public function getCompanies(
         CompanyRepository $companyRepository,
     ): JsonResponse {
@@ -97,6 +117,10 @@ class CompanyController extends AbstractController
         int $companyId,
         CompanyRepository $companyRepository,
     ): JsonResponse {
+        $currentAccount = $this->security->getToken()->getUser();
+        if (!$currentAccount instanceof Admin && (!$currentAccount instanceof Company || $currentAccount->getId() !== $companyId)) {
+            return new JsonResponse(['message' => 'Vous n\'avez pas les droits suffisants'], Response::HTTP_FORBIDDEN);
+        }
         $cacheKey = 'getCompanyDetail-'.$companyId;
 
         try {
@@ -128,7 +152,7 @@ class CompanyController extends AbstractController
         name: 'create_company',
         methods: ['POST'],
     )]
-    #[IsGranted('ROLE_ADMIN', message: 'Vous n\'avez pas les droits suffisants')]
+    #[IsGranted('ROLE_ADMIN', message: 'Accès réservé aux administrateurs')]
     public function createCompany(
         Request $request,
         EntityManagerInterface $em,
@@ -168,6 +192,7 @@ class CompanyController extends AbstractController
         name: 'delete_company',
         methods: ['DELETE'],
     )]
+    #[IsGranted('ROLE_ADMIN', message: 'Accès réservé aux administrateurs')]
     public function deleteCompany(
         int $companyId,
         CompanyRepository $companyRepository,

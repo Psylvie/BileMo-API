@@ -4,6 +4,9 @@ security:
         Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
     # https://symfony.com/doc/current/security.html#loading-the-user-the-user-provider
     providers:
+        chain_provider:
+            chain:
+                providers: [ company_provider, admin_provider ]
         company_provider:
             entity:
                 class: App\Entity\Company
@@ -43,7 +46,7 @@ security:
         api:
             pattern: ^/api
             stateless: true
-            provider: company_provider
+            provider: chain_provider
             jwt: ~
 
         admin:
@@ -60,9 +63,12 @@ security:
 
     # Easy way to control access for large sections of your site
     # Note: Only the *first* access control that matches will be used
+    role_hierarchy:
+        ROLE_ADMIN: [ROLE_COMPANY]
+
     access_control:
         - { path: ^/admin, roles: ROLE_ADMIN }
-        - { path: ^/api, roles: [ROLE_ADMIN, ROLE_COMPANY]}
+        - { path: ^/api, roles: ROLE_COMPANY }
         - { path: ^/api/login, roles: PUBLIC_ACCESS }
         - { path: ^/admin/login, roles: PUBLIC_ACCESS }
 
