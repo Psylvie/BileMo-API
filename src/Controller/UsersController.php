@@ -2,14 +2,14 @@
 
 namespace App\Controller;
 
+use App\Entity\Admin;
+use App\Entity\Company;
 use App\Entity\Users;
 use App\Repository\CompanyRepository;
 use App\Repository\UsersRepository;
-use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\EntityManagerInterface;
 use JMS\Serializer\SerializationContext;
 use JMS\Serializer\SerializerInterface;
-use Psr\Cache\InvalidArgumentException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -17,14 +17,13 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
-use Symfony\Contracts\Cache\TagAwareCacheInterface;
 
 class UsersController extends AbstractController
 {
     public function __construct(
         private readonly SerializerInterface $serializer,
         private readonly ValidatorInterface $validator,
-        private readonly TagAwareCacheInterface $cache,
+        private readonly Security $security,
     ) {
     }
 
@@ -38,17 +37,30 @@ class UsersController extends AbstractController
         int $userId,
         UsersRepository $usersRepository,
         CompanyRepository $companyRepository,
+        Security $security,
     ): JsonResponse {
-        $company = $companyRepository->find($companyId);
+        $currentAccount = $security->getUser();
 
+        if (!$currentAccount instanceof Company && !$currentAccount instanceof Admin) {
+            return $this->createErrorResponse('Access denied', Response::HTTP_FORBIDDEN);
+        }
+
+        $company = $companyRepository->find($companyId);
         if (!$company) {
             return $this->createErrorResponse('Company not found', Response::HTTP_NOT_FOUND);
         }
 
-        $user = $usersRepository->find($userId);
+        if ($currentAccount instanceof Company && $currentAccount->getId() !== $company->getId()) {
+            return $this->createErrorResponse('Access denied', Response::HTTP_FORBIDDEN);
+        }
 
-        if (!$user || !$user->getCompanies()->contains($company)) {
-            return $this->createErrorResponse('User not found or not linked to this company', Response::HTTP_NOT_FOUND);
+        $user = $usersRepository->find($userId);
+        if (!$user) {
+            return $this->createErrorResponse('User not found', Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$user->getCompanies()->contains($company)) {
+            return $this->createErrorResponse('User not associated with this company', Response::HTTP_FORBIDDEN);
         }
 
         $context = SerializationContext::create()->setGroups(['user:read']);
@@ -65,11 +77,23 @@ class UsersController extends AbstractController
         Request $request,
         CompanyRepository $companyRepository,
         EntityManagerInterface $em,
+        UsersRepository $usersRepository,
     ): JsonResponse {
+        $currentAccount = $this->security->getToken()->getUser();
+
+        if (!$currentAccount instanceof Company && !$currentAccount instanceof Admin) {
+            return new JsonResponse(['message' => 'Access denied'], Response::HTTP_FORBIDDEN);
+        }
+
         $company = $companyRepository->find($companyId);
         if (!$company) {
             return $this->createErrorResponse('Company not found', Response::HTTP_NOT_FOUND);
         }
+
+        if ($currentAccount instanceof Company && $currentAccount->getId() !== $company->getId()) {
+            return new JsonResponse(['message' => 'Access denied'], Response::HTTP_FORBIDDEN);
+        }
+
         $data = $request->getContent();
 
         try {
@@ -78,24 +102,33 @@ class UsersController extends AbstractController
             return $this->createErrorResponse('Invalid data format', Response::HTTP_BAD_REQUEST);
         }
 
-        $company->addUser($user);
+        $existingUser = $usersRepository->findOneBy(['email' => $user->getEmail()]);
 
-        $errors = $this->getValidationErrors($user);
+        if ($existingUser && $existingUser->getCompanies()->contains($company)) {
+            return new JsonResponse(['message' => 'User is already associated with this company'], Response::HTTP_CONFLICT);
+        }
+
+        if (!$existingUser) {
+            $existingUser = new Users();
+            $existingUser->setEmail($user->getEmail());
+            $existingUser->setName($user->getName());
+            $existingUser->setLastName($user->getLastName());
+            $em->persist($existingUser);
+        }
+
+        $existingUser->addCompany($company);
+        $company->addUser($existingUser);
+
+        $errors = $this->getValidationErrors($existingUser);
         if (!empty($errors)) {
             return new JsonResponse(['errors' => $errors], Response::HTTP_BAD_REQUEST);
         }
 
-        if (null === $user->getCompanies()) {
-            $user->setCompanies(new ArrayCollection());
-        }
-
-        $user->addCompany($company);
-        $em->persist($user);
-        $em->persist($company);
+        $em->persist($existingUser);
         $em->flush();
 
         $context = SerializationContext::create()->setGroups(['user:read']);
-        $jsonContent = $this->serializer->serialize($user, 'json', $context);
+        $jsonContent = $this->serializer->serialize($existingUser, 'json', $context);
 
         return new JsonResponse($jsonContent, Response::HTTP_CREATED, [], true);
     }
@@ -125,16 +158,13 @@ class UsersController extends AbstractController
         }
 
         $user->removeCompany($company);
-        $em->persist($user);
-
         $em->flush();
-        // if user.companies = 0
         if ($user->getCompanies()->isEmpty()) {
             $em->remove($user);
-            $em->flush();
         }
 
-        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+        $em->flush();
+        return new JsonResponse(['message' => 'User successfully deleted'], Response::HTTP_OK);
     }
 
     private function getValidationErrors($entity): array
