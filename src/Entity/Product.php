@@ -4,8 +4,25 @@ namespace App\Entity;
 
 use App\Repository\ProductRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Hateoas\Configuration\Annotation as Hateoas;
 use JMS\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
+
+#[Hateoas\Relation(
+    name: 'product_delete',
+    href: "expr('/api/products/' ~ object.getId())",
+    exclusion: new Hateoas\Exclusion(groups: ['product:read'])
+)]
+#[Hateoas\Relation(
+    name: 'product_detail',
+    href: "expr('/api/products/' ~ object.getId())",
+    exclusion: new Hateoas\Exclusion(groups: ['product:read']),
+)]
+#[Hateoas\Relation(
+    name: 'products',
+    href: "expr('/api/products/')",
+    exclusion: new Hateoas\Exclusion(groups: ['product:read']),
+)]
 
 #[ORM\Entity(repositoryClass: ProductRepository::class)]
 #[ORM\HasLifecycleCallbacks]

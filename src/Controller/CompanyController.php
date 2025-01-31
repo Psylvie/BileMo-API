@@ -99,7 +99,7 @@ class CompanyController extends AbstractController
                 return $companyRepository->findAll();
             });
 
-            $context = SerializationContext::create()->setGroups(['company:read']);
+            $context = SerializationContext::create()->setGroups(['company:read', 'user:read']);
             $jsonContent = $this->serializer->serialize($companies, 'json', $context);
 
             return new JsonResponse($jsonContent, Response::HTTP_OK, [], true);
@@ -202,10 +202,14 @@ class CompanyController extends AbstractController
         if (!$company) {
             return new JsonResponse(['message' => 'Company not found'], Response::HTTP_NOT_FOUND);
         }
+
         $em->remove($company);
         $em->flush();
         $this->cache->invalidateTags(['companiesCache']);
 
-        return new JsonResponse(json_encode(['message' => 'Company deleted successfully']), Response::HTTP_OK, [], true);
+        $context = SerializationContext::create()->setGroups(['company:read']);
+        $jsonContent = $this->serializer->serialize($company, 'json', $context);
+
+        return new JsonResponse($jsonContent, Response::HTTP_OK, [], true);
     }
 }

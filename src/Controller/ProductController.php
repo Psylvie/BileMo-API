@@ -5,6 +5,8 @@ namespace App\Controller;
 use App\Entity\Product;
 use App\Repository\ProductRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Hateoas\Representation\CollectionRepresentation;
+use Hateoas\Representation\PaginatedRepresentation;
 use JMS\Serializer\SerializationContext;
 use JMS\Serializer\SerializerInterface;
 use Knp\Component\Pager\PaginatorInterface;
@@ -61,24 +63,37 @@ class ProductController extends AbstractController
                 $query = $productRepository->createQueryBuilder('p')->getQuery();
                 $pagination = $paginator->paginate($query, $page, $limit);
 
-                $item->expiresAfter(3600);
-
                 return [
                     'products' => $pagination->getItems(),
                     'totalCount' => $pagination->getTotalItemCount(),
+                    'currentPage' => $pagination->getCurrentPageNumber(),
+                    'totalPages' => ceil($pagination->getTotalItemCount() / $limit),
                 ];
             });
 
-            $context = SerializationContext::create()->setGroups(['product:read']);
-            $jsonContent = $this->serializer->serialize($productList, 'json', $context);
+            $paginatedCollection = new PaginatedRepresentation(
+                new CollectionRepresentation($productList['products']),
+                'get_products',
+                [],
+                $page,
+                $limit,
+                $productList['totalPages'],
+                'page',
+                'limit',
+                false,
+                $productList['totalCount']
+            );
+
+            $jsonContent = $this->serializer->serialize($paginatedCollection, 'json');
 
             return new JsonResponse($jsonContent, Response::HTTP_OK, [
+                'Content-Type' => 'application/json',
                 'X-Total-Count' => $productList['totalCount'],
                 'X-Page' => $page,
                 'X-Limit' => $limit,
             ], true);
         } catch (\Exception $e) {
-            return new JsonResponse(['error' => 'An unexpected error occurred.'], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return new JsonResponse(['error' => 'Une erreur est survenue.'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 

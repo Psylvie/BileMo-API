@@ -6,9 +6,25 @@ use App\Repository\CompanyRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use Hateoas\Configuration\Annotation as Hateoas;
 use JMS\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
+#[Hateoas\Relation(
+    name: 'company_detail',
+    href: "expr('/api/companies/' ~ object.getId())",
+    exclusion: new Hateoas\Exclusion(groups: ['company:read'])
+)]
+#[Hateoas\Relation(
+    name: 'users',
+    href: "expr('/api/companies/' ~ object.getId() ~ '/users')",
+    exclusion: new Hateoas\Exclusion(groups: ['company:read'])
+)]
+#[Hateoas\Relation(
+    name: 'company_delete',
+    href: "expr('/api/companies/' ~ object.getId())",
+    exclusion: new Hateoas\Exclusion(groups: ['company:read'])
+)]
 #[ORM\Entity(repositoryClass: CompanyRepository::class)]
 #[ORM\HasLifecycleCallbacks]
 class Company extends AbstractAccount
