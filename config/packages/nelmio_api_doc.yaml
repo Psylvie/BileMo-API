@@ -1,0 +1,112 @@
+nelmio_api_doc:
+    documentation:
+        info:
+            title: Bilemo
+            description: Application bilemo api !
+            version: 2.0.0
+        paths:
+            /api/login_check:
+                post:
+                    operationId: postCredentialsItem
+                    tags:
+                        - Token
+                    summary: Permet d'obtenir le token JWT pour se logger
+                    requestBody:
+                        required: true
+                        description: Crée un nouveau token JWT pour la compagnie
+                        content:
+                            application/json:
+                                schema:
+                                    type: object
+                                    properties:
+                                        email:
+                                            type: string
+                                        password:
+                                            type: string
+                                    required:
+                                        - email
+                                        - password
+                    responses:
+                        '200':
+                            description: Récupère le token JWT
+                            content:
+                                application/json:
+                                    schema:
+                                        $ref: '#/components/schemas/Token'
+            /admin/login_check:
+                post:
+                    operationId: postAdminLogin
+                    tags:
+                        - Token
+                    summary: Réserver a l'administrateur
+                    requestBody:
+                        required: true
+                        description: Crée un nouveau token JWT pour l'administrateur
+                        content:
+                            application/json:
+                                schema:
+                                    type: object
+                                    properties:
+                                        email:
+                                            type: string
+                                        password:
+                                            type: string
+                                            format: password
+                                    required:
+                                        - email
+                                        - password
+                    responses:
+                        '200':
+                            description: Récupère le token JWT pour l'admin
+                            content:
+                                application/json:
+                                    schema:
+                                        $ref: '#/components/schemas/Token'
+        components:
+            schemas:
+                Token:
+                    type: object
+                    properties:
+                        token:
+                            type: string
+                            readOnly: true
+                Credentials:
+                    type: object
+                    properties:
+                        email:
+                            type: string
+                            description: "User Email"
+                        password:
+                            type: string
+                            description: "User Password"
+                    required:
+                        - email
+                        - password
+            securitySchemes:
+                bearerAuth:
+                    type: http
+                    scheme: bearer
+                    bearerFormat: JWT
+
+        security:
+            - bearerAuth: []
+
+    areas:
+        # Business to Business Documentation (B2B)
+        default:
+            path_patterns:
+                - ^/api  # Includes all API routes
+            documentation:
+                info:
+                    title: Bilemo - Entreprises
+                    description: API pour les entreprises partenaires
+
+        # Admin Documentation (for admin access)
+        admin:
+            path_patterns:
+                - ^/admin  # Includes all admin routes
+                - ^/api  # And all API routes
+            documentation:
+                info:
+                    title: Bilemo - Admin
+                    description: API réservée aux administrateurs

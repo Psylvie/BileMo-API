@@ -10,6 +10,7 @@ use App\Repository\UsersRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use JMS\Serializer\SerializationContext;
 use JMS\Serializer\SerializerInterface;
+use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -31,6 +32,11 @@ class UsersController extends AbstractController
         'api/companies/{companyId}/users/{userId}',
         name: 'get_user_details_for_company',
         methods: ['GET']
+    )]
+    #[OA\Get(
+        description: "Cette route retourne le detail d'un utililsateur d'une companie",
+        summary: "Retourne le detail d'un utililsateur d'une companie",
+        tags: ['Users']
     )]
     public function getUserDetailsForCompany(
         int $companyId,
@@ -72,6 +78,23 @@ class UsersController extends AbstractController
     #[Route('api/companies/{companyId}/users',
         name: 'add_user_to_company',
         methods: ['POST'])]
+    #[OA\Post(
+        description: 'Cette route ajoute un utililsateur a une companie',
+        summary: "Ajout d'un utililsateur a une companie",
+        tags: ['Users']
+    )]
+    #[OA\RequestBody(
+        description: 'Données requises pour ajouter un utililsateur.',
+        required: true,
+        content: new OA\JsonContent(
+            properties: [
+                new OA\Property(property: 'email', type: 'string', example: 'exemple@email.com'),
+                new OA\Property(property: 'lastName', type: 'string', example: "Prénom de l'utilisateur"),
+                new OA\Property(property: 'name', type: 'string', example: "Nom de l'utilisateur"),
+            ],
+            type: 'object',
+        )
+    )]
     public function addUserToCompany(
         int $companyId,
         Request $request,
@@ -138,6 +161,11 @@ class UsersController extends AbstractController
         name: 'delete_user',
         methods: ['DELETE']
     )]
+    #[OA\Delete(
+        description: "Cette route supprime un utililsateur d'une companie",
+        summary: "Supprime un utililsateur d'une companie",
+        tags: ['Users']
+    )]
     public function deleteUser(
         int $companyId,
         int $userId,
@@ -164,6 +192,7 @@ class UsersController extends AbstractController
         }
 
         $em->flush();
+
         return new JsonResponse(['message' => 'User successfully deleted'], Response::HTTP_OK);
     }
 

@@ -10,6 +10,8 @@ use Hateoas\Representation\PaginatedRepresentation;
 use JMS\Serializer\SerializationContext;
 use JMS\Serializer\SerializerInterface;
 use Knp\Component\Pager\PaginatorInterface;
+use Nelmio\ApiDocBundle\Attribute\Model;
+use OpenApi\Attributes as OA;
 use Psr\Cache\InvalidArgumentException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -38,6 +40,28 @@ class ProductController extends AbstractController
         '/api/products',
         name: 'get_products',
         methods: ['GET']
+    )]
+    #[OA\Get(
+        description: 'Cette route retourne une liste paginée de produits.',
+        summary: 'Retourne la liste des produits',
+        tags: ['Products']
+    )]
+    #[OA\Response(
+        response: 200,
+        description: 'Liste des produits',
+        content: new Model(type: Product::class),
+    )]
+    #[OA\Parameter(
+        name: 'page',
+        description: 'Numéro de la page à récupérer',
+        in: 'query',
+        schema: new OA\Schema(type: 'integer')
+    )]
+    #[OA\Parameter(
+        name: 'limit',
+        description: "Nombre d'éléments à récupérer par page",
+        in: 'query',
+        schema: new OA\Schema(type: 'integer')
     )]
     #[IsGranted('IS_AUTHENTICATED_FULLY', message: 'Vous devez être authentifié pour accéder à cette ressource')]
     public function getProducts(
@@ -100,6 +124,11 @@ class ProductController extends AbstractController
     /**
      * @throws InvalidArgumentException
      */
+    #[OA\Get(
+        description: 'Cette route retourne le détail du produit.',
+        summary: 'Retourne le détail du produit',
+        tags: ['Products']
+    )]
     #[Route(
         '/api/products/{id}',
         name: 'get_product_detail',
@@ -136,8 +165,44 @@ class ProductController extends AbstractController
     /**
      * @throws InvalidArgumentException
      */
+    #[OA\Post(
+        description: 'Cette route crée un produit.',
+        summary: 'Créer un produit',
+        tags: ['Products'],
+        responses: [
+            new OA\Response(
+                response: 201,
+                description: 'Produit créé avec succès',
+                content: new OA\JsonContent(
+                    ref: '#/components/schemas/Product'
+                )
+            ),
+        ]
+    )]
+    #[OA\RequestBody(
+        description: 'Données requises pour créer un produit',
+        required: true,
+        content: new OA\MediaType(
+            mediaType: 'multipart/form-data',
+            schema: new OA\Schema(
+                properties: [
+                    new OA\Property(property: 'name', type: 'string', example: 'Nom du produit'),
+                    new OA\Property(property: 'description', type: 'string', example: 'Description du produit'),
+                    new OA\Property(property: 'price', type: 'number', example: 19.99),
+                    new OA\Property(property: 'model', type: 'string', example: 'Modèle'),
+                    new OA\Property(property: 'brand', type: 'string', example: 'Marque'),
+                    new OA\Property(property: 'dimension', type: 'string', example: 'Dimension du produit'),
+                    new OA\Property(property: 'reference', type: 'string', example: 'Référence'),
+                    new OA\Property(property: 'stock', type: 'integer', example: 100),
+                    new OA\Property(property: 'isAvailable', type: 'boolean', example: true),
+                    new OA\Property(property: 'image', description: 'Image du produit', type: 'string', format: 'binary'),
+                ],
+                type: 'object'
+            )
+        )
+    )]
     #[Route(
-        '/api/products',
+        '/admin/products',
         name: 'create_product',
         methods: ['POST']
     )]
@@ -146,8 +211,33 @@ class ProductController extends AbstractController
         Request $request,
         EntityManagerInterface $em,
     ): JsonResponse {
-        $data = $request->getContent();
-        $product = $this->serializer->deserialize($data, Product::class, 'json');
+        $name = $request->request->get('name');
+        $description = $request->request->get('description');
+        $price = $request->request->get('price');
+        $model = $request->request->get('model');
+        $brand = $request->request->get('brand');
+        $dimension = $request->request->get('dimension');
+        $reference = $request->request->get('reference');
+        $stock = $request->request->get('stock');
+        $isAvailable = $request->request->get('isAvailable');
+
+        $product = new Product();
+        $product->setName($name);
+        $product->setDescription($description);
+        $product->setPrice($price);
+        $product->setModel($model);
+        $product->setBrand($brand);
+        $product->setDimension($dimension);
+        $product->setReference($reference);
+        $product->setStock($stock);
+        $product->setIsAvailable($isAvailable);
+
+        $imageFile = $request->files->get('image');
+        if ($imageFile) {
+            $imageFileName = uniqid().'.'.$imageFile->guessExtension();
+            $imageFile->move($this->getParameter('images_directory'), $imageFileName);
+            $product->setImage($imageFileName);
+        }
 
         $errors = $this->getValidationErrors($product);
         if (!empty($errors)) {
@@ -168,8 +258,13 @@ class ProductController extends AbstractController
     /**
      * @throws InvalidArgumentException
      */
+    #[OA\Delete(
+        description: 'Cette route crée un produit.',
+        summary: 'creer un produit',
+        tags: ['Products']
+    )]
     #[Route(
-        '/api/products/{id}',
+        '/admin/products/{id}',
         name: 'delete_product',
         methods: ['DELETE']
     )]

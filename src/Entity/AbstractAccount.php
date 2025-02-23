@@ -20,6 +20,7 @@ abstract class AbstractAccount implements UserInterface, PasswordAuthenticatedUs
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: 'integer')]
+    #[Groups(['company:read'])]
     protected ?int $id = null;
     #[ORM\Column(type: 'json')]
     private array $roles = [];
