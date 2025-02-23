@@ -10,21 +10,25 @@ use Hateoas\Configuration\Annotation as Hateoas;
 use JMS\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
-
 #[Hateoas\Relation(
     name: 'user_delete',
-    href: "expr('/api/companies/' ~ object.getCompanies().first().getId() ~ '/users/' ~ object.getId())",
+    href: "expr(object.getCompanies() && object.getCompanies().count() > 0 ? '/api/companies/' ~ object.getCompanies().first().getId() ~ '/users/' ~ object.getId() : '')",
     exclusion: new Hateoas\Exclusion(groups: ['user:read'])
 )]
 #[Hateoas\Relation(
     name: 'user_detail',
-    href: "expr('/api/company/' ~ object.getCompanies().first().getId() ~ '/users/' ~ object.getId())]",
-    exclusion: new Hateoas\Exclusion(groups: ['user:read']),
+    href: "expr(object.getCompanies().count() > 0 ? '/api/companies/' ~ object.getCompanies().first().getId() ~ '/users/' ~ object.getId() : '')",
+    exclusion: new Hateoas\Exclusion(groups: ['company:read', 'user:read']),
 )]
 #[Hateoas\Relation(
     name: 'company_detail',
-    href: "expr('/api/company/' ~ object.getCompanies().first().getId())]",
-    exclusion: new Hateoas\Exclusion(groups: ['user:read']),
+    href: "expr(object.getCompanies() && object.getCompanies().count() > 0 ? '/api/companies/' ~ object.getCompanies().first().getId() : '')",
+    exclusion: new Hateoas\Exclusion(groups: ['company:read']),
+)]
+#[Hateoas\Relation(
+    name: 'company_users',
+    href: "expr(object.getCompanies().first() ? '/api/companies/' ~ object.getCompanies().first().getId() ~ '/users' : '')",
+    exclusion: new Hateoas\Exclusion(groups: ['company:list']),
 )]
 #[ORM\Entity(repositoryClass: UsersRepository::class)]
 #[ORM\HasLifecycleCallbacks]
@@ -34,13 +38,13 @@ class Users
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
-    #[Groups(['user:read', 'company:read'])]
+    #[Groups(['user:read'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank(message: 'Veuillez renseigner un prénom.')]
     #[Assert\Length(max: 255, maxMessage: 'Le prénom ne peut pas dépasser {{ limit }} caractères.')]
-    #[Groups(['user:read', 'company:read'])]
+    #[Groups(['user:read'])]
     private ?string $name = null;
 
     #[ORM\Column(length: 255, nullable: true)]
@@ -58,7 +62,7 @@ class Users
      * @var Collection<int, Company>
      */
     #[ORM\ManyToMany(targetEntity: Company::class, inversedBy: 'users')]
-    #[Groups(['user:read', 'company:read'])]
+    #[Groups(['user:write', 'user:read_no_companies'])]
     private Collection $companies;
 
     public function __construct()

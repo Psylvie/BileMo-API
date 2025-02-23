@@ -11,7 +11,9 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[Hateoas\Relation(
     name: 'product_delete',
     href: "expr('/api/products/' ~ object.getId())",
-    exclusion: new Hateoas\Exclusion(groups: ['product:read'])
+    exclusion: new Hateoas\Exclusion(
+        groups: ['product:read'],
+        excludeIf: "expr(not is_granted('ROLE_ADMIN'))"),
 )]
 #[Hateoas\Relation(
     name: 'product_detail',
@@ -23,7 +25,6 @@ use Symfony\Component\Validator\Constraints as Assert;
     href: "expr('/api/products/')",
     exclusion: new Hateoas\Exclusion(groups: ['product:read']),
 )]
-
 #[ORM\Entity(repositoryClass: ProductRepository::class)]
 #[ORM\HasLifecycleCallbacks]
 class Product

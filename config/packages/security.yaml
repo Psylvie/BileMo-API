@@ -67,10 +67,12 @@ security:
         ROLE_ADMIN: [ROLE_COMPANY]
 
     access_control:
+        - { path: ^/api/doc, roles: PUBLIC_ACCESS }
         - { path: ^/admin, roles: ROLE_ADMIN }
         - { path: ^/api, roles: ROLE_COMPANY }
         - { path: ^/api/login, roles: PUBLIC_ACCESS }
         - { path: ^/admin/login, roles: PUBLIC_ACCESS }
+
 
 when@test:
     security:
