@@ -24,8 +24,9 @@ class CompanyFixtures extends Fixture
         for ($i = 0; $i < 20; ++$i) {
             $company = new Company();
             $hashedPassword = $this->passwordHasher->hashPassword($company, $commonPassword);
+            $companyEmail = 'company'.$i.'@test.com';
             $company->setCompanyName($faker->company)
-                ->setEmail($faker->email)
+                ->setEmail($companyEmail)
                 ->setPhone($faker->phoneNumber)
                 ->setWebSite($faker->url)
                 ->setPassword($hashedPassword)
