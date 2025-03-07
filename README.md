@@ -1,4 +1,5 @@
-# 📚 BileMo Catalog Management API
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/d96ce72044914f8088b0db55707da2f1)](https://app.codacy.com/gh/Psylvie/BileMo-API/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
+# 📚 BileMo Catalog Management API  
 **BileMo** is a company offering a selection of high-end mobile phones. This project represents BileMo's digital showcase, where the company exposes its product catalog via an API for business-to-business (B2B) clients.
 
 # 📱 Features
