@@ -298,12 +298,18 @@ class CompanyController extends AbstractController
         $em->persist($company);
         $em->flush();
         $this->cache->invalidateTags(['companiesCache']);
+        $this->cache->delete('getCompanyDetails-'.$company->getId());
 
         $context = SerializationContext::create()->setGroups(['company:read', 'user:write']);
 
         $jsonContent = $this->serializer->serialize($company, 'json', $context);
 
-        return new JsonResponse($jsonContent, Response::HTTP_CREATED, [], true);
+        return new JsonResponse([
+            'message' => 'Company créé avec succès.',
+            'company' => json_decode($jsonContent),
+            'created_at' => $company->getCreatedAt()->format('Y-m-d H:i:s'),
+            'company_id' => $company->getId(),
+        ], Response::HTTP_CREATED);
     }
 
     /**
@@ -370,6 +376,7 @@ class CompanyController extends AbstractController
         $em->remove($company);
         $em->flush();
         $this->cache->invalidateTags(['companiesCache']);
+        $this->cache->delete('getCompanyDetails-'.$company->getId());
 
         return new JsonResponse(['message' => 'Company successfully deleted'], Response::HTTP_OK);
     }

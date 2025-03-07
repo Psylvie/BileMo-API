@@ -8,6 +8,7 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Hateoas\Configuration\Annotation as Hateoas;
 use JMS\Serializer\Annotation\Groups;
+use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[Hateoas\Relation(
@@ -28,6 +29,7 @@ use Symfony\Component\Validator\Constraints as Assert;
         excludeIf: "expr(not is_granted('ROLE_ADMIN'))"),
 )]
 #[ORM\Entity(repositoryClass: CompanyRepository::class)]
+#[UniqueEntity(fields: ['email'], message: 'This email is already used by another company')]
 #[ORM\HasLifecycleCallbacks]
 class Company extends AbstractAccount
 {
