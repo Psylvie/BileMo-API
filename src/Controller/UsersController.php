@@ -33,6 +33,27 @@ class UsersController extends AbstractController
         name: 'get_user_details_for_company',
         methods: ['GET']
     )]
+    #[OA\Response(
+        response: 200,
+        description: "Détails d'un utilisateur d'une compagnie",
+        content: new OA\JsonContent(
+            properties: [
+                new OA\Property(property: 'id', type: 'integer', example: 69),
+                new OA\Property(property: 'name', type: 'string', example: 'Estelle'),
+                new OA\Property(property: 'lastName', type: 'string', example: "O'Conner"),
+                new OA\Property(property: 'email', type: 'string', example: 'user19_0@example.com'),
+                new OA\Property(property: '_links', properties: [
+                    new OA\Property(property: 'user_delete', properties: [
+                        new OA\Property(property: 'href', type: 'string', example: '/api/companies/20/users/69'),
+                    ], type: 'object'),
+                    new OA\Property(property: 'user_detail', properties: [
+                        new OA\Property(property: 'href', type: 'string', example: '/api/companies/20/users/69'),
+                    ], type: 'object'),
+                ], type: 'object'),
+            ],
+            type: 'object'
+        )
+    )]
     #[OA\Get(
         description: "Cette route retourne le detail d'un utililsateur d'une companie",
         summary: "Retourne le detail d'un utililsateur d'une companie",
@@ -82,6 +103,27 @@ class UsersController extends AbstractController
         description: 'Cette route ajoute un utililsateur a une companie',
         summary: "Ajout d'un utililsateur a une companie",
         tags: ['Users']
+    )]
+    #[OA\Response(
+        response: 201,
+        description: 'Utilisateur ajouté avec succès.',
+        content: new OA\JsonContent(
+            properties: [
+                new OA\Property(property: 'id', type: 'integer', example: 70),
+                new OA\Property(property: 'name', type: 'string', example: "Nom de l'utilisateur"),
+                new OA\Property(property: 'lastName', type: 'string', example: "Prénom de l'utilisateur"),
+                new OA\Property(property: 'email', type: 'string', example: 'exempledetest@email.com'),
+                new OA\Property(property: '_links', properties: [
+                    new OA\Property(property: 'user_delete', properties: [
+                        new OA\Property(property: 'href', type: 'string', example: '/api/companies/3/users/70'),
+                    ], type: 'object'),
+                    new OA\Property(property: 'user_detail', properties: [
+                        new OA\Property(property: 'href', type: 'string', example: '/api/companies/3/users/70'),
+                    ], type: 'object'),
+                ], type: 'object'),
+            ],
+            type: 'object'
+        )
     )]
     #[OA\RequestBody(
         description: 'Données requises pour ajouter un utililsateur.',
@@ -147,7 +189,6 @@ class UsersController extends AbstractController
             return new JsonResponse(['errors' => $errors], Response::HTTP_BAD_REQUEST);
         }
 
-        $em->persist($existingUser);
         $em->flush();
 
         $context = SerializationContext::create()->setGroups(['user:read']);
@@ -160,6 +201,36 @@ class UsersController extends AbstractController
         'api/company/{companyId}/users/{userId}',
         name: 'delete_user',
         methods: ['DELETE']
+    )]
+    #[OA\Response(
+        response: 200,
+        description: 'Utilisateur supprimé avec succès',
+        content: new OA\JsonContent(
+            properties: [
+                new OA\Property(property: 'message', type: 'string', example: 'User successfully deleted'),
+            ],
+            type: 'object'
+        )
+    )]
+    #[OA\Response(
+        response: 404,
+        description: 'Entreprise ou utilisateur non trouvé',
+        content: new OA\JsonContent(
+            properties: [
+                new OA\Property(property: 'error', type: 'string', example: 'Company or User not found'),
+            ],
+            type: 'object'
+        )
+    )]
+    #[OA\Response(
+        response: 403,
+        description: "Accès refusé si l'utilisateur n'appartient pas à la compagnie",
+        content: new OA\JsonContent(
+            properties: [
+                new OA\Property(property: 'error', type: 'string', example: 'Access denied'),
+            ],
+            type: 'object'
+        )
     )]
     #[OA\Delete(
         description: "Cette route supprime un utililsateur d'une companie",

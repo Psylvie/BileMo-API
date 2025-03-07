@@ -66,7 +66,7 @@ class Product
     private ?string $reference = null;
 
     #[ORM\Column]
-    #[Assert\NotBlank(message: 'Veuillez renseigner un prix pour le produit.')]
+    #[Assert\NotNull(message: 'Le prix est obligatoire.')]
     #[Assert\Positive(message: 'Le prix doit être un nombre positif.')]
     #[Groups(['product:read', 'product:write'])]
     private ?float $price = null;
@@ -80,7 +80,7 @@ class Product
     private ?string $dimension = null;
 
     #[ORM\Column]
-    #[Assert\NotBlank(message: 'Veuillez renseigner la quantité en stock.')]
+    #[Assert\NotNull(message: 'Le stock est obligatoire.')]
     #[Assert\PositiveOrZero(message: 'Le stock ne peut pas être négatif.')]
     #[Groups(['product:read', 'product:write'])]
     private ?int $stock = null;
@@ -168,7 +168,7 @@ class Product
         return $this->price;
     }
 
-    public function setPrice(float $price): self
+    public function setPrice(?float $price): self
     {
         $this->price = $price;
 
@@ -192,7 +192,7 @@ class Product
         return $this->stock;
     }
 
-    public function setStock(int $stock): self
+    public function setStock(?int $stock): self
     {
         $this->stock = $stock;
 

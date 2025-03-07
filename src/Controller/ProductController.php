@@ -4,12 +4,10 @@ namespace App\Controller;
 
 use App\Entity\Product;
 use App\Repository\ProductRepository;
+use App\Service\ProductPaginationService;
 use Doctrine\ORM\EntityManagerInterface;
-use Hateoas\Representation\CollectionRepresentation;
-use Hateoas\Representation\PaginatedRepresentation;
 use JMS\Serializer\SerializationContext;
 use JMS\Serializer\SerializerInterface;
-use Knp\Component\Pager\PaginatorInterface;
 use Nelmio\ApiDocBundle\Attribute\Model;
 use OpenApi\Attributes as OA;
 use Psr\Cache\InvalidArgumentException;
@@ -30,6 +28,7 @@ class ProductController extends AbstractController
         private readonly SerializerInterface $serializer,
         private readonly ValidatorInterface $validator,
         private readonly TagAwareCacheInterface $cache,
+        private readonly ProductPaginationService $paginationService,
     ) {
     }
 
@@ -66,59 +65,27 @@ class ProductController extends AbstractController
     #[IsGranted('IS_AUTHENTICATED_FULLY', message: 'Vous devez être authentifié pour accéder à cette ressource')]
     public function getProducts(
         ProductRepository $productRepository,
-        PaginatorInterface $paginator,
         Request $request,
     ): JsonResponse {
-        $page = $request->query->getInt('page', 1);
-        $limit = $request->query->getInt('limit', 10);
+        $paginationResult = $this->paginationService->paginate($productRepository, $request);
 
-        if ($limit <= 0 || $limit > 1000) {
-            return new JsonResponse(['error' => 'Invalid limit value.'], Response::HTTP_BAD_REQUEST);
+        if (isset($paginationResult['error'])) {
+            return new JsonResponse(['error' => $paginationResult['error']], $paginationResult['status']);
         }
+        $paginatedCollection = [
+            'products' => $paginationResult['items'],
+            'totalCount' => $paginationResult['totalCount'],
+            'currentPage' => $paginationResult['currentPage'],
+            'totalPages' => $paginationResult['totalPages'],
+        ];
+        $jsonContent = $this->serializer->serialize($paginatedCollection, 'json');
 
-        if ($page <= 0) {
-            return new JsonResponse(['error' => 'Invalid page value.'], Response::HTTP_BAD_REQUEST);
-        }
-        $idCache = 'getProducts-'.$page.'-'.$limit;
-
-        try {
-            $productList = $this->cache->get($idCache, function (ItemInterface $item) use ($productRepository, $paginator, $page, $limit) {
-                $item->tag('productsCache');
-                $query = $productRepository->createQueryBuilder('p')->getQuery();
-                $pagination = $paginator->paginate($query, $page, $limit);
-
-                return [
-                    'products' => $pagination->getItems(),
-                    'totalCount' => $pagination->getTotalItemCount(),
-                    'currentPage' => $pagination->getCurrentPageNumber(),
-                    'totalPages' => ceil($pagination->getTotalItemCount() / $limit),
-                ];
-            });
-
-            $paginatedCollection = new PaginatedRepresentation(
-                new CollectionRepresentation($productList['products']),
-                'get_products',
-                [],
-                $page,
-                $limit,
-                $productList['totalPages'],
-                'page',
-                'limit',
-                false,
-                $productList['totalCount']
-            );
-
-            $jsonContent = $this->serializer->serialize($paginatedCollection, 'json');
-
-            return new JsonResponse($jsonContent, Response::HTTP_OK, [
-                'Content-Type' => 'application/json',
-                'X-Total-Count' => $productList['totalCount'],
-                'X-Page' => $page,
-                'X-Limit' => $limit,
-            ], true);
-        } catch (\Exception $e) {
-            return new JsonResponse(['error' => 'Une erreur est survenue.'], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
+        return new JsonResponse($jsonContent, Response::HTTP_OK, [
+            'Content-Type' => 'application/json',
+            'X-Total-Count' => $paginationResult['totalCount'],
+            'X-Page' => $paginationResult['currentPage'],
+            'X-Limit' => $request->query->getInt('limit', 10),
+        ], true);
     }
 
     /**
@@ -127,7 +94,39 @@ class ProductController extends AbstractController
     #[OA\Get(
         description: 'Cette route retourne le détail du produit.',
         summary: 'Retourne le détail du produit',
-        tags: ['Products']
+        tags: ['Products'],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Détail du produit',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'id', type: 'integer', example: 1),
+                        new OA\Property(property: 'name', type: 'string', example: 'Produit A'),
+                        new OA\Property(property: 'description', type: 'string', example: 'Description du produit A'),
+                        new OA\Property(property: 'model', type: 'string', example: 'ES_8'),
+                        new OA\Property(property: 'brand', type: 'string', example: 'Apple'),
+                        new OA\Property(property: 'reference', type: 'string', example: '54_65_b'),
+                        new OA\Property(property: 'price', type: 'number', format: 'float', example: 99.99),
+                        new OA\Property(property: 'dimension', type: 'string', example: '25 x 12'),
+                        new OA\Property(property: 'stock', type: 'integer', example: 10),
+                        new OA\Property(property: 'isAvailable', type: 'boolean', example: true),
+                        new OA\Property(property: 'image', type: 'string', example: '/uploads/products/produit-a.jpg'),
+                    ],
+                    type: 'object'
+                )
+            ),
+            new OA\Response(
+                response: 404,
+                description: 'Produit non trouvé',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'error', type: 'string', example: 'Produit avec l\'ID 1 non trouvé.'),
+                    ],
+                    type: 'object'
+                )
+            ),
+        ]
     )]
     #[Route(
         '/api/products/{id}',
@@ -221,6 +220,9 @@ class ProductController extends AbstractController
         $stock = $request->request->get('stock');
         $isAvailable = $request->request->get('isAvailable');
 
+        $price = is_numeric($price) ? (float) $price : null;
+        $stock = is_numeric($stock) ? (int) $stock : null;
+
         $product = new Product();
         $product->setName($name);
         $product->setDescription($description);
@@ -237,22 +239,32 @@ class ProductController extends AbstractController
             $imageFileName = uniqid().'.'.$imageFile->guessExtension();
             $imageFile->move($this->getParameter('images_directory'), $imageFileName);
             $product->setImage($imageFileName);
+        } else {
+            $product->setImage('/images/products/default.png');
         }
 
         $errors = $this->getValidationErrors($product);
         if (!empty($errors)) {
-            return new JsonResponse(['errors' => $errors], Response::HTTP_BAD_REQUEST);
+            return new JsonResponse([
+                'errors' => $errors,
+                'status' => 'bad_request',
+            ], Response::HTTP_BAD_REQUEST);
         }
 
         $em->persist($product);
         $em->flush();
 
-        $this->cache->invalidateTags(['productCache']);
+        $this->paginationService->invalidateProductCache();
 
         $context = SerializationContext::create()->setGroups(['product:read']);
         $jsonContent = $this->serializer->serialize($product, 'json', $context);
 
-        return new JsonResponse($jsonContent, Response::HTTP_CREATED, [], true);
+        return new JsonResponse([
+            'message' => 'Produit créé avec succès.',
+            'product' => json_decode($jsonContent),
+            'created_at' => $product->getCreatedAt()->format('Y-m-d H:i:s'),
+            'product_id' => $product->getId(),
+        ], Response::HTTP_CREATED);
     }
 
     /**
@@ -281,7 +293,7 @@ class ProductController extends AbstractController
 
         $em->remove($product);
         $em->flush();
-        $this->cache->invalidateTags(['productCache']);
+        $this->paginationService->invalidateProductCache();
 
         return new JsonResponse(['message' => 'Produit supprimé avec succès.'], Response::HTTP_OK);
     }
