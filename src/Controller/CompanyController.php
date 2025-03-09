@@ -92,11 +92,12 @@ class CompanyController extends AbstractController
                     $this->em->initializeObject($users);
                 }
 
-                return array_map(function ($user) use ($companyId) {
-                    return [
+                $usersData = [];
+                foreach ($users as $user) {
+                    $usersData[] = [
                         'id' => $user->getId(),
                         'name' => $user->getName(),
-                        'lastName' => $user->getLastName(),
+                        'lastname' => $user->getLastname(),
                         'email' => $user->getEmail(),
                         '_links' => [
                             'user_delete' => [
@@ -107,7 +108,8 @@ class CompanyController extends AbstractController
                             ],
                         ],
                     ];
-                }, $users->toArray());
+                }
+                return $usersData;
             });
 
             $context = SerializationContext::create()->setGroups(['user:read']);
